@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TrainLog 使用说明</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, "Microsoft YaHei", sans-serif;
+        background: #101111;
+        color: #f5f2ea;
+      }
+      body {
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 32px 18px;
+        line-height: 1.65;
+      }
+      h1,
+      h2 {
+        letter-spacing: 0;
+      }
+      a,
+      code {
+        color: #76f7a0;
+      }
+      section {
+        border: 1px solid rgba(245, 242, 234, 0.12);
+        border-radius: 8px;
+        padding: 16px;
+        margin: 14px 0;
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .muted {
+        color: #a9aaa2;
+      }
+      li {
+        margin: 8px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>TrainLog 使用说明</h1>
+
+    <section>
+      <h2>正式使用方式</h2>
+      <p>想让手机像独立 App 一样使用，不需要电脑一直开着，请把整个 <code>trainlog</code> 文件夹或 <code>TrainLog-PWA.zip</code> 部署到 HTTPS 网站，例如 Cloudflare Pages、Vercel、Netlify 或 GitHub Pages。</p>
+      <p>部署后，用手机打开 HTTPS 链接，在浏览器菜单里选择“添加到主屏幕”。之后 TrainLog 会像 App 一样从桌面打开。</p>
+    </section>
+
+    <section>
+      <h2>数据同步</h2>
+      <p>手机和电脑要共享数据，必须有一个云端同步端点。TrainLog 现在已经内置同步面板：</p>
+      <ol>
+        <li>打开 TrainLog 的“复盘”页面。</li>
+        <li>找到“独立 App 与同步”。</li>
+        <li>填入同步端点和同步密钥。</li>
+        <li>手机点“上传到云端”，电脑点“从云端恢复”，或反过来使用。</li>
+      </ol>
+      <p class="muted">没有同步端点时，TrainLog 会本地优先运行，数据只保存在当前设备浏览器里。</p>
+    </section>
+
+    <section>
+      <h2>云同步端点</h2>
+      <p>输出包里有 <code>cloudflare-sync-worker.js</code>，这是一个轻量 Cloudflare Worker 同步后端示例。部署 Worker 后绑定一个 KV 命名空间，变量名使用 <code>TRAINLOG_KV</code>。部署完成后，把 Worker 地址填到 TrainLog 的“同步端点”。</p>
+      <p>同步密钥可以自己设置，例如一串随机字符。请不要用生日、手机号这种容易猜到的内容。</p>
+    </section>
+
+    <section>
+      <h2>备份和迁移</h2>
+      <p>如果暂时不部署云同步，也可以在“复盘”页面使用“导出备份”和“导入备份”。这不是自动同步，但可以先让你把手机数据迁移到电脑，或把电脑数据迁移到手机。</p>
+    </section>
+
+    <section>
+      <h2>开发预览方式</h2>
+      <p><code>Start-TrainLog.bat</code> 只是开发预览工具：它会让同一 Wi-Fi 的手机临时访问电脑上的 TrainLog。这个模式需要窗口保持开启，不适合正式长期使用。</p>
+      <p class="muted">正式使用请部署到 HTTPS，这样就不需要电脑服务窗口。</p>
+    </section>
+  </body>
+</html>

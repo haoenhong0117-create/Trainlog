@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#101111" />
+    <title>TrainLog</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <button class="avatar-button" id="profileButton" aria-label="Profile">
+          <span>TL</span>
+        </button>
+        <div>
+          <p class="eyebrow" data-i18n="top_eyebrow">AI 身材教练</p>
+          <h1>TrainLog</h1>
+        </div>
+        <button class="language-toggle" id="languageToggle" type="button" aria-label="Switch language">EN</button>
+      </header>
+
+      <main>
+        <section class="screen is-active" id="screen-today" data-screen="today" aria-label="Today">
+          <div class="hero-panel">
+            <div>
+              <p class="eyebrow" data-i18n="today_eyebrow">今日状态</p>
+              <h2 data-i18n="today_title">腹肌线条阶段</h2>
+              <p class="hero-copy" data-i18n="today_copy">轻微减脂，保持力量，优先修正圆肩和骨盆控制。</p>
+            </div>
+            <div class="score-orbit" aria-label="Readiness score">
+              <span id="readinessScore">86</span>
+              <small data-i18n="readiness">状态分</small>
+            </div>
+          </div>
+
+          <div class="metric-grid">
+            <article class="metric-card">
+              <p data-i18n="calories">热量</p>
+              <strong><span id="caloriesValue">1,240</span>/<span id="caloriesGoal">2,250</span></strong>
+              <div class="mini-bar"><span id="caloriesBar"></span></div>
+            </article>
+            <article class="metric-card">
+              <p data-i18n="protein">蛋白质</p>
+              <strong><span id="proteinValue">92</span>g/<span id="proteinGoal">135</span>g</strong>
+              <div class="mini-bar protein"><span id="proteinBar"></span></div>
+            </article>
+            <article class="metric-card">
+              <p data-i18n="streak">连续打卡</p>
+              <strong><span id="streakValue">6</span> <span data-i18n="days">天</span></strong>
+              <div class="mini-badges">
+                <span>XP</span>
+                <span id="xpValue">420</span>
+              </div>
+            </article>
+            <article class="metric-card">
+              <p data-i18n="level">等级</p>
+              <strong><span id="levelValue">4</span></strong>
+              <div class="mini-badges">
+                <span data-i18n="next_level">下一级</span>
+                <span id="nextLevelValue">80 XP</span>
+              </div>
+            </article>
+          </div>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="quests_eyebrow">今日任务</p>
+                <h3 data-i18n="quests_title">完成 3 件关键事</h3>
+              </div>
+              <button class="plain-button" id="resetDayButton" type="button" data-i18n="reset">重置</button>
+            </div>
+            <div class="quest-list" id="questList"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="coach_eyebrow">AI 教练</p>
+                <h3 data-i18n="coach_title">今天最该关注</h3>
+              </div>
+            </div>
+            <div class="coach-card">
+              <div class="coach-mark"></div>
+              <p id="coachMessage" data-i18n="coach_message">先记录第一餐或完成一个训练任务，TrainLog 会开始生成今天的监督建议。</p>
+            </div>
+          </section>
+        </section>
+
+        <section class="screen" id="screen-food" data-screen="food" aria-label="Food">
+          <div class="section-heading screen-heading">
+            <div>
+              <p class="eyebrow" data-i18n="food_eyebrow">饮食记录</p>
+              <h2 data-i18n="food_title">拍照，估算，复用</h2>
+            </div>
+          </div>
+
+          <section class="tool-panel">
+            <div class="scan-tabs" role="tablist" aria-label="Meal type">
+              <button class="chip is-active" data-meal-type="meal" type="button" data-i18n="meal_photo">饭菜肉</button>
+              <button class="chip" data-meal-type="package" type="button" data-i18n="package_photo">包装食品</button>
+              <button class="chip" data-meal-type="manual" type="button" data-i18n="manual_input">手动输入</button>
+            </div>
+            <label class="upload-zone" for="foodPhoto">
+              <input id="foodPhoto" type="file" accept="image/*" />
+              <span class="upload-icon"></span>
+              <strong data-i18n="upload_food">上传食物照片</strong>
+              <small data-i18n="upload_food_hint">包装食品可再拍营养表，提高准确度</small>
+              <img id="foodPreview" alt="" hidden />
+            </label>
+            <label class="upload-zone compact" for="labelPhoto">
+              <input id="labelPhoto" type="file" accept="image/*" />
+              <span class="upload-icon label"></span>
+              <strong data-i18n="upload_label">上传营养表或配料表</strong>
+              <small data-i18n="optional">可选</small>
+              <img id="labelPreview" alt="" hidden />
+            </label>
+            <div class="field-grid">
+              <label>
+                <span data-i18n="food_name">食物名称</span>
+                <input id="foodName" type="text" data-i18n-placeholder="food_name_placeholder" placeholder="例如：鸡胸饭 + 青菜" />
+              </label>
+              <label>
+                <span data-i18n="grams">估算克数</span>
+                <input id="foodGrams" type="number" min="0" inputmode="decimal" data-i18n-placeholder="grams_placeholder" placeholder="可选" />
+              </label>
+            </div>
+            <label>
+              <span data-i18n="notes">补充信息</span>
+              <textarea id="foodNotes" rows="3" data-i18n-placeholder="food_notes_placeholder" placeholder="例如：少油，半碗饭，鸡胸大概一掌半"></textarea>
+            </label>
+            <div class="button-row">
+              <button class="primary-button" id="estimateFoodButton" type="button" data-i18n="estimate">AI 估算</button>
+              <button class="secondary-button" id="saveFavoriteButton" type="button" data-i18n="save_favorite">收藏</button>
+            </div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="result_eyebrow">估算结果</p>
+                <h3 id="foodResultTitle" data-i18n="awaiting_scan">等待扫描</h3>
+              </div>
+              <span class="confidence-pill" id="confidencePill">0%</span>
+            </div>
+            <div class="nutrition-grid">
+              <div><span data-i18n="calories_short">热量</span><strong id="resultCalories">--</strong></div>
+              <div><span data-i18n="protein_short">蛋白</span><strong id="resultProtein">--</strong></div>
+              <div><span data-i18n="carbs">碳水</span><strong id="resultCarbs">--</strong></div>
+              <div><span data-i18n="fat">脂肪</span><strong id="resultFat">--</strong></div>
+            </div>
+            <p class="muted" id="foodCoachNote" data-i18n="food_empty_note">拍照或输入后会生成热量、宏量营养和准确度建议。</p>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="favorites_eyebrow">常用食物</p>
+                <h3 data-i18n="favorites_title">一键复用</h3>
+              </div>
+            </div>
+            <div class="favorite-list" id="favoriteList"></div>
+          </section>
+        </section>
+
+        <section class="screen" id="screen-body" data-screen="body" aria-label="Body">
+          <div class="section-heading screen-heading">
+            <div>
+              <p class="eyebrow" data-i18n="body_eyebrow">身材与体态</p>
+              <h2 data-i18n="body_title">直接指出问题，鼓励推进</h2>
+            </div>
+          </div>
+
+          <section class="tool-panel">
+            <div class="body-upload-grid">
+              <label class="body-upload" for="frontPhoto">
+                <input id="frontPhoto" type="file" accept="image/*" />
+                <span data-i18n="front">正面</span>
+                <img id="frontPreview" alt="" hidden />
+              </label>
+              <label class="body-upload" for="sidePhoto">
+                <input id="sidePhoto" type="file" accept="image/*" />
+                <span data-i18n="side">侧面</span>
+                <img id="sidePreview" alt="" hidden />
+              </label>
+              <label class="body-upload" for="backPhoto">
+                <input id="backPhoto" type="file" accept="image/*" />
+                <span data-i18n="back">背面</span>
+                <img id="backPreview" alt="" hidden />
+              </label>
+            </div>
+            <button class="primary-button full" id="analyzeBodyButton" type="button" data-i18n="analyze_body">分析身材与体态</button>
+          </section>
+
+          <section class="posture-layout">
+            <div class="posture-visual" aria-hidden="true">
+              <div class="head-node"></div>
+              <div class="spine-line"></div>
+              <div class="shoulder-line"></div>
+              <div class="hip-line"></div>
+              <div class="knee-line"></div>
+              <span class="tag tag-neck" data-i18n="neck_tag">头前伸</span>
+              <span class="tag tag-shoulder" data-i18n="shoulder_tag">圆肩</span>
+              <span class="tag tag-hip" data-i18n="hip_tag">骨盆控制</span>
+            </div>
+            <div class="analysis-list" id="postureList"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="physique_eyebrow">身材反馈</p>
+                <h3 data-i18n="physique_title">下一阶段重点</h3>
+              </div>
+            </div>
+            <div class="focus-grid" id="physiqueFocus"></div>
+          </section>
+
+          <section class="section-block motivation-block">
+            <div>
+              <p class="eyebrow" data-i18n="future_eyebrow">未来参考</p>
+              <h3 data-i18n="future_title">生成目标视觉</h3>
+              <p class="muted" data-i18n="future_note">用于激励和方向感，不作为医学或结果承诺。</p>
+            </div>
+            <button class="secondary-button" id="futureButton" type="button" data-i18n="generate">生成</button>
+          </section>
+        </section>
+
+        <section class="screen" id="screen-plan" data-screen="plan" aria-label="Plan">
+          <div class="section-heading screen-heading">
+            <div>
+              <p class="eyebrow" data-i18n="plan_eyebrow">训练计划</p>
+              <h2 data-i18n="plan_title">6 练 + 体态修复</h2>
+            </div>
+          </div>
+
+          <section class="week-strip" id="weekStrip"></section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="today_training_eyebrow">今日训练</p>
+                <h3 id="trainingTitle">Pull + Posture</h3>
+              </div>
+              <span class="confidence-pill" id="trainingLoad">72%</span>
+            </div>
+            <div class="exercise-list" id="exerciseList"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="mobility_eyebrow">体态修复</p>
+                <h3 data-i18n="mobility_title">8 分钟启动</h3>
+              </div>
+            </div>
+            <div class="mobility-grid" id="mobilityGrid"></div>
+          </section>
+        </section>
+
+        <section class="screen" id="screen-review" data-screen="review" aria-label="Review">
+          <div class="section-heading screen-heading">
+            <div>
+              <p class="eyebrow" data-i18n="review_eyebrow">每周复盘</p>
+              <h2 data-i18n="review_title">看趋势，不看一天</h2>
+            </div>
+          </div>
+
+          <section class="chart-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="trend_eyebrow">7 天趋势</p>
+                <h3 data-i18n="trend_title">热量与蛋白质</h3>
+              </div>
+            </div>
+            <div class="bar-chart" id="weeklyChart"></div>
+          </section>
+
+          <section class="insight-grid">
+            <article>
+              <span data-i18n="best_win">最佳进展</span>
+              <strong data-i18n="best_win_text">开始后生成</strong>
+              <p data-i18n="best_win_copy">记录饮食、训练和体态后，这里会显示你最稳定的进展。</p>
+            </article>
+            <article>
+              <span data-i18n="main_risk">主要风险</span>
+              <strong data-i18n="main_risk_text">暂无风险</strong>
+              <p data-i18n="main_risk_copy">数据不足时不会乱下结论，记录几天后再判断。</p>
+            </article>
+            <article>
+              <span data-i18n="next_adjustment">下周调整</span>
+              <strong data-i18n="next_adjustment_text">等待第一周数据</strong>
+              <p data-i18n="next_adjustment_copy">满一周后再调整热量、训练容量和体态任务。</p>
+            </article>
+          </section>
+
+          <section class="section-block profile-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="profile_eyebrow">个人目标</p>
+                <h3 data-i18n="profile_title">你的实验参数</h3>
+              </div>
+            </div>
+            <div class="field-grid">
+              <label>
+                <span data-i18n="height">身高</span>
+                <input id="heightInput" type="number" value="177" />
+              </label>
+              <label>
+                <span data-i18n="weight">体重</span>
+                <input id="weightInput" type="number" value="66" />
+              </label>
+              <label>
+                <span data-i18n="age">年龄</span>
+                <input id="ageInput" type="number" value="20" />
+              </label>
+              <label>
+                <span data-i18n="training_days">每周训练</span>
+                <input id="daysInput" type="number" value="6" />
+              </label>
+            </div>
+            <label>
+              <span data-i18n="goal">目标</span>
+              <textarea id="goalInput" rows="3">改善体态，上镜更好看，练出腹肌。</textarea>
+            </label>
+            <button class="primary-button full" id="saveProfileButton" type="button" data-i18n="save_profile">保存目标</button>
+            <p class="privacy-note" data-i18n="privacy_note">身材照默认只保留在本机预览。体态分析不是医疗诊断。</p>
+          </section>
+
+          <section class="section-block sync-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="sync_eyebrow">独立 App 与同步</p>
+                <h3 data-i18n="sync_title">手机和电脑共用数据</h3>
+              </div>
+              <span class="confidence-pill" id="syncStatusPill" data-i18n="local_only">本机模式</span>
+            </div>
+            <p class="muted" data-i18n="sync_intro">正式使用时，把 TrainLog 部署到 HTTPS，然后手机添加到主屏幕。开启云同步后，手机和电脑打开同一个网址即可共享数据。</p>
+            <div class="field-grid">
+              <label>
+                <span data-i18n="sync_endpoint">同步端点</span>
+                <input id="syncEndpointInput" type="url" inputmode="url" placeholder="https://your-worker.example.workers.dev" />
+              </label>
+              <label>
+                <span data-i18n="sync_key">同步密钥</span>
+                <input id="syncKeyInput" type="password" autocomplete="new-password" placeholder="trainlog-private-key" />
+              </label>
+            </div>
+            <label>
+              <span data-i18n="device_name">设备名称</span>
+              <input id="deviceNameInput" type="text" placeholder="Haoen iPhone" />
+            </label>
+            <div class="button-row wrap">
+              <button class="secondary-button" id="saveSyncButton" type="button" data-i18n="save_sync">保存同步设置</button>
+              <button class="primary-button" id="pushSyncButton" type="button" data-i18n="push_sync">上传到云端</button>
+              <button class="secondary-button" id="pullSyncButton" type="button" data-i18n="pull_sync">从云端恢复</button>
+            </div>
+            <div class="button-row wrap">
+              <button class="secondary-button" id="exportDataButton" type="button" data-i18n="export_data">导出备份</button>
+              <button class="secondary-button" id="importDataButton" type="button" data-i18n="import_data">导入备份</button>
+              <input id="importDataInput" type="file" accept="application/json,.json" hidden />
+            </div>
+            <p class="privacy-note" id="syncNote" data-i18n="sync_note">当前仍是本机优先。没有同步端点时，数据只保存在这台设备的浏览器里。</p>
+          </section>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Primary">
+        <button class="nav-item is-active" data-target="today" type="button">
+          <span class="nav-icon today"></span>
+          <small data-i18n="nav_today">今日</small>
+        </button>
+        <button class="nav-item" data-target="food" type="button">
+          <span class="nav-icon food"></span>
+          <small data-i18n="nav_food">饮食</small>
+        </button>
+        <button class="nav-item" data-target="body" type="button">
+          <span class="nav-icon body"></span>
+          <small data-i18n="nav_body">身材</small>
+        </button>
+        <button class="nav-item" data-target="plan" type="button">
+          <span class="nav-icon plan"></span>
+          <small data-i18n="nav_plan">计划</small>
+        </button>
+        <button class="nav-item" data-target="review" type="button">
+          <span class="nav-icon review"></span>
+          <small data-i18n="nav_review">复盘</small>
+        </button>
+      </nav>
+    </div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
