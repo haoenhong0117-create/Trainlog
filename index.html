@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
     <div class="app-shell">
@@ -105,18 +105,22 @@
               <button class="chip" data-meal-type="package" type="button" data-i18n="package_photo">包装食品</button>
               <button class="chip" data-meal-type="manual" type="button" data-i18n="manual_input">手动输入</button>
             </div>
-            <label class="upload-zone" for="foodPhoto">
+            <div class="meal-mode-card" id="mealModeCard">
+              <strong id="mealModeTitle">饭菜肉模式</strong>
+              <p id="mealModeCopy">适合饭、菜、肉、外食便当。上传餐食照片，补充克数会更准。</p>
+            </div>
+            <label class="upload-zone" id="foodUploadZone" for="foodPhoto">
               <input id="foodPhoto" type="file" accept="image/*" />
               <span class="upload-icon"></span>
-              <strong data-i18n="upload_food">上传食物照片</strong>
-              <small data-i18n="upload_food_hint">包装食品可再拍营养表，提高准确度</small>
+              <strong id="foodUploadTitle" data-i18n="upload_food">上传食物照片</strong>
+              <small id="foodUploadHint" data-i18n="upload_food_hint">包装食品可再拍营养表，提高准确度</small>
               <img id="foodPreview" alt="" hidden />
             </label>
-            <label class="upload-zone compact" for="labelPhoto">
+            <label class="upload-zone compact" id="labelUploadZone" for="labelPhoto">
               <input id="labelPhoto" type="file" accept="image/*" />
               <span class="upload-icon label"></span>
-              <strong data-i18n="upload_label">上传营养表或配料表</strong>
-              <small data-i18n="optional">可选</small>
+              <strong id="labelUploadTitle" data-i18n="upload_label">上传营养表或配料表</strong>
+              <small id="labelUploadHint" data-i18n="optional">可选</small>
               <img id="labelPreview" alt="" hidden />
             </label>
             <div class="field-grid">
@@ -418,6 +422,6 @@
       </nav>
     </div>
 
-    <script src="app.js?v=5" defer></script>
+    <script src="app.js?v=6" defer></script>
   </body>
 </html>

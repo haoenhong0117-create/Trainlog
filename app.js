@@ -28,6 +28,8 @@ const translations = {
     upload_food_hint: "包装食品可再拍营养表，提高准确度",
     upload_label: "上传营养表或配料表",
     optional: "可选",
+    recommended: "建议上传",
+    hidden_in_manual: "手动输入模式不需要照片",
     food_name: "食物名称",
     food_name_placeholder: "例如：鸡胸饭 + 青菜",
     grams: "估算克数",
@@ -162,6 +164,8 @@ const translations = {
     upload_food_hint: "Packaged foods can add a nutrition label for better accuracy",
     upload_label: "Upload label or ingredients",
     optional: "Optional",
+    recommended: "Recommended",
+    hidden_in_manual: "Manual mode does not need photos",
     food_name: "Food name",
     food_name_placeholder: "Example: chicken rice + greens",
     grams: "Estimated grams",
@@ -419,19 +423,116 @@ function renderMealType() {
   $$(".chip").forEach((chip) => {
     chip.classList.toggle("is-active", chip.dataset.mealType === state.activeMealType);
   });
+  const config = mealModeConfig()[state.activeMealType] || mealModeConfig().meal;
+  $("#mealModeTitle").textContent = config.title;
+  $("#mealModeCopy").textContent = config.copy;
+  $("#foodUploadTitle").textContent = config.foodUploadTitle;
+  $("#foodUploadHint").textContent = config.foodUploadHint;
+  $("#labelUploadTitle").textContent = config.labelUploadTitle;
+  $("#labelUploadHint").textContent = config.labelUploadHint;
+  $("#foodName").placeholder = config.namePlaceholder;
+  $("#foodGrams").placeholder = config.gramsPlaceholder;
+  $("#foodNotes").placeholder = config.notesPlaceholder;
+  $("#foodUploadZone").hidden = !config.showFoodUpload;
+  $("#labelUploadZone").hidden = !config.showLabelUpload;
+  $("#mealModeCard").dataset.mode = state.activeMealType;
+}
+
+function mealModeConfig() {
+  const zh = state.lang === "zh";
+  return {
+    meal: {
+      title: zh ? "饭菜肉模式" : "Meal mode",
+      copy: zh
+        ? "适合饭、菜、肉、外食便当。上传餐食照片，补充克数会更准。"
+        : "For rice, vegetables, meat, and restaurant meals. Add a meal photo; grams improve accuracy.",
+      foodUploadTitle: zh ? "上传整餐照片" : "Upload full meal photo",
+      foodUploadHint: zh ? "尽量拍到主食、肉和配菜比例" : "Capture carbs, protein, and vegetables clearly",
+      labelUploadTitle: zh ? "营养表" : "Nutrition label",
+      labelUploadHint: zh ? "饭菜肉通常不需要" : "Usually not needed for meals",
+      namePlaceholder: zh ? "例如：牛肉饭 + 青菜" : "Example: beef rice + greens",
+      gramsPlaceholder: zh ? "可选，例：450" : "Optional, e.g. 450",
+      notesPlaceholder: zh ? "例如：少油，半碗饭，牛肉一掌" : "Example: low oil, half bowl rice, one palm beef",
+      showFoodUpload: true,
+      showLabelUpload: false,
+      defaultGrams: 420,
+      caloriesPerGram: 1.35,
+      proteinRatio: 0.105,
+      carbsRatio: 0.24,
+      fatRatio: 0.035,
+      baseConfidence: 58
+    },
+    package: {
+      title: zh ? "包装食品模式" : "Packaged food mode",
+      copy: zh
+        ? "适合零食、面包、饮料、即食食品。拍营养表会明显提高准确度。"
+        : "For snacks, bread, drinks, and ready-to-eat foods. Label photos greatly improve accuracy.",
+      foodUploadTitle: zh ? "上传包装正面或食物照片" : "Upload package front or food photo",
+      foodUploadHint: zh ? "如果只拍正面，也可以先估算" : "Front photo can still give a rough estimate",
+      labelUploadTitle: zh ? "上传营养表" : "Upload nutrition label",
+      labelUploadHint: zh ? "建议上传" : "Recommended",
+      namePlaceholder: zh ? "例如：巧克力面包 / 无糖可乐" : "Example: chocolate bun / diet cola",
+      gramsPlaceholder: zh ? "可选，例：80" : "Optional, e.g. 80",
+      notesPlaceholder: zh ? "例如：一包吃完，或只吃了一半" : "Example: whole pack, or only half",
+      showFoodUpload: true,
+      showLabelUpload: true,
+      defaultGrams: 80,
+      caloriesPerGram: 3.4,
+      proteinRatio: 0.08,
+      carbsRatio: 0.52,
+      fatRatio: 0.12,
+      baseConfidence: 64
+    },
+    manual: {
+      title: zh ? "手动输入模式" : "Manual mode",
+      copy: zh
+        ? "适合你知道食物和克数时使用。不需要照片，直接输入名称、克数和备注。"
+        : "Use this when you know the food and amount. No photo needed; enter name, grams, and notes.",
+      foodUploadTitle: zh ? "不需要照片" : "No photo needed",
+      foodUploadHint: zh ? "直接填写下面的信息" : "Fill in the fields below",
+      labelUploadTitle: zh ? "不需要营养表" : "No label needed",
+      labelUploadHint: zh ? "手动输入模式" : "Manual mode",
+      namePlaceholder: zh ? "例如：米饭 150g + 鸡胸 180g" : "Example: rice 150g + chicken 180g",
+      gramsPlaceholder: zh ? "建议填写，例：330" : "Recommended, e.g. 330",
+      notesPlaceholder: zh ? "例如：按熟重，鸡胸无皮，米饭一碗" : "Example: cooked weight, skinless chicken, one bowl rice",
+      showFoodUpload: false,
+      showLabelUpload: false,
+      defaultGrams: 300,
+      caloriesPerGram: 1.5,
+      proteinRatio: 0.13,
+      carbsRatio: 0.25,
+      fatRatio: 0.04,
+      baseConfidence: 62
+    }
+  };
+}
+
+function hasPreview(selector) {
+  const image = $(selector);
+  return Boolean(image?.src) && image.hidden === false;
 }
 
 function estimateFood() {
   const grams = Number($("#foodGrams").value || 0);
   const name = $("#foodName").value.trim() || (state.lang === "zh" ? "未命名食物" : "Unnamed food");
-  const hasLabel = !$("#labelPhoto").hidden && $("#labelPreview").src;
-  const typeMultiplier = state.activeMealType === "package" ? 1.22 : state.activeMealType === "manual" ? 1 : 0.92;
-  const base = Math.max(120, grams * 1.35 * typeMultiplier);
-  const calories = Math.round(base);
-  const protein = Math.round(clamp(grams * (state.activeMealType === "package" ? 0.12 : 0.115), 8, 68));
-  const carbs = Math.round(clamp(grams * (state.activeMealType === "package" ? 0.48 : 0.22), 12, 130));
-  const fat = Math.round(clamp(calories / 9 - protein * 0.8 - carbs * 0.25, 5, 35));
-  const confidence = clamp((state.activeMealType === "manual" ? 74 : 68) + (grams ? 8 : 0) + (hasLabel ? 14 : 0), 55, 94);
+  const config = mealModeConfig()[state.activeMealType] || mealModeConfig().meal;
+  const effectiveGrams = grams || config.defaultGrams;
+  const hasFoodPhoto = hasPreview("#foodPreview");
+  const hasLabel = hasPreview("#labelPreview");
+  const hasNotes = Boolean($("#foodNotes").value.trim());
+  const calories = Math.round(effectiveGrams * config.caloriesPerGram);
+  const protein = Math.round(clamp(effectiveGrams * config.proteinRatio, 2, 75));
+  const carbs = Math.round(clamp(effectiveGrams * config.carbsRatio, 0, 150));
+  const fat = Math.round(clamp(effectiveGrams * config.fatRatio, 0, 45));
+  const confidence = clamp(
+    config.baseConfidence +
+      (grams ? 10 : 0) +
+      (hasFoodPhoto && config.showFoodUpload ? 8 : 0) +
+      (hasLabel && state.activeMealType === "package" ? 16 : 0) +
+      (hasNotes ? 5 : 0),
+    45,
+    96
+  );
 
   $("#foodResultTitle").textContent = name;
   $("#resultCalories").textContent = `${calories} kcal`;
@@ -441,8 +542,8 @@ function estimateFood() {
   $("#confidencePill").textContent = `${t("confidence")} ${confidence}%`;
   $("#foodCoachNote").textContent =
     state.lang === "zh"
-      ? `${name} 已加入今日饮食。若这是包装食品，补拍营养表可把误差继续压低。`
-      : `${name} was added to today. For packaged food, add a label photo to reduce error.`;
+      ? `${name} 已按${config.title}加入今日饮食。${grams ? "已使用你提供的克数。" : `未填克数，暂按约 ${effectiveGrams}g 估算。`}`
+      : `${name} was added with ${config.title}. ${grams ? "Your grams were used." : `No grams entered, estimated at about ${effectiveGrams}g.`}`;
 
   state.calories += calories;
   state.protein += protein;
@@ -1084,8 +1185,8 @@ function bindEvents() {
   $$(".chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       state.activeMealType = chip.dataset.mealType;
-      $$(".chip").forEach((node) => node.classList.toggle("is-active", node === chip));
       saveState();
+      renderMealType();
     });
   });
 

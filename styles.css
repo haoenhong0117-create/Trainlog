@@ -458,6 +458,36 @@ label span,
   color: var(--bg);
 }
 
+.meal-mode-card {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(118, 247, 160, 0.18);
+  border-radius: var(--radius);
+  background: var(--green-soft);
+}
+
+.meal-mode-card[data-mode="package"] {
+  border-color: rgba(121, 215, 255, 0.22);
+  background: var(--cyan-soft);
+}
+
+.meal-mode-card[data-mode="manual"] {
+  border-color: rgba(255, 209, 102, 0.24);
+  background: var(--amber-soft);
+}
+
+.meal-mode-card strong {
+  display: block;
+  font-size: 0.94rem;
+}
+
+.meal-mode-card p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .upload-zone {
   min-height: 154px;
   margin-top: 12px;
@@ -471,6 +501,10 @@ label span,
   background: rgba(255, 255, 255, 0.035);
   overflow: hidden;
   position: relative;
+}
+
+[hidden] {
+  display: none !important;
 }
 
 .upload-zone.compact {
