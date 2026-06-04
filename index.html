@@ -251,6 +251,31 @@
             <div class="exercise-list" id="exerciseList"></div>
           </section>
 
+          <section class="section-block training-edit-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="custom_training_eyebrow">自定义训练</p>
+                <h3 data-i18n="custom_training_title">修改当天内容</h3>
+              </div>
+            </div>
+            <div class="field-grid">
+              <label>
+                <span data-i18n="exercise_name">动作名称</span>
+                <input id="customExerciseName" type="text" data-i18n-placeholder="exercise_name_placeholder" placeholder="例如：上斜哑铃卧推" />
+              </label>
+              <label>
+                <span data-i18n="exercise_detail">组数说明</span>
+                <input id="customExerciseDetail" type="text" data-i18n-placeholder="exercise_detail_placeholder" placeholder="4 组，8-10 次" />
+              </label>
+            </div>
+            <div class="button-row wrap">
+              <button class="primary-button" id="saveExerciseButton" type="button" data-i18n="save_exercise">保存动作</button>
+              <button class="secondary-button" id="clearExerciseButton" type="button" data-i18n="clear_form">清空</button>
+              <button class="secondary-button" id="resetTrainingButton" type="button" data-i18n="reset_training">恢复当天默认</button>
+            </div>
+            <p class="muted" id="trainingEditNote" data-i18n="training_edit_note">编辑或删除默认动作时，会自动复制一份当天计划给你单独修改。</p>
+          </section>
+
           <section class="section-block">
             <div class="section-heading">
               <div>

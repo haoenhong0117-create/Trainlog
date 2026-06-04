@@ -66,6 +66,20 @@ const translations = {
     today_training_eyebrow: "今日训练",
     mobility_eyebrow: "体态修复",
     mobility_title: "8 分钟启动",
+    custom_training_eyebrow: "自定义训练",
+    custom_training_title: "修改当天内容",
+    exercise_name: "动作名称",
+    exercise_detail: "组数说明",
+    exercise_name_placeholder: "例如：上斜哑铃卧推",
+    exercise_detail_placeholder: "4 组，8-10 次",
+    save_exercise: "保存动作",
+    clear_form: "清空",
+    reset_training: "恢复当天默认",
+    training_edit_note: "编辑或删除默认动作时，会自动复制一份当天计划给你单独修改。",
+    edit: "编辑",
+    delete: "删除",
+    exercise_saved: "动作已保存",
+    training_reset_done: "已恢复默认",
     review_eyebrow: "每周复盘",
     review_title: "看趋势，不看一天",
     trend_eyebrow: "7 天趋势",
@@ -186,6 +200,20 @@ const translations = {
     today_training_eyebrow: "Today session",
     mobility_eyebrow: "Posture reset",
     mobility_title: "8 minute primer",
+    custom_training_eyebrow: "Custom training",
+    custom_training_title: "Edit this day",
+    exercise_name: "Exercise name",
+    exercise_detail: "Sets and notes",
+    exercise_name_placeholder: "Example: incline dumbbell press",
+    exercise_detail_placeholder: "4 sets, 8-10 reps",
+    save_exercise: "Save exercise",
+    clear_form: "Clear",
+    reset_training: "Reset this day",
+    training_edit_note: "Editing or deleting a default exercise creates your own copy of this day's plan.",
+    edit: "Edit",
+    delete: "Delete",
+    exercise_saved: "Exercise saved",
+    training_reset_done: "Defaults restored",
     review_eyebrow: "Weekly review",
     review_title: "Track trends, not one day",
     trend_eyebrow: "7 day trend",
@@ -253,7 +281,9 @@ const defaultState = {
   xp: 0,
   level: 1,
   activeMealType: "meal",
+  activePlanDay: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date().getDay()],
   favorites: [],
+  customTraining: {},
   quests: [
     { id: "protein", titleZh: "蛋白质达到 135g", titleEn: "Reach 135g protein", detailZh: "从第一餐开始记录", detailEn: "Start with your first meal", xp: 40, done: false },
     { id: "posture", titleZh: "训练前肩胛激活", titleEn: "Scapula primer before training", detailZh: "面拉 + 墙天使 + Y raise", detailEn: "Face pulls + wall slides + Y raise", xp: 30, done: false },
@@ -298,6 +328,7 @@ function mergeState(base, incoming) {
   merged.quests = Array.isArray(incoming.quests) ? incoming.quests : base.quests;
   merged.favorites = Array.isArray(incoming.favorites) ? incoming.favorites : base.favorites;
   merged.completedExercises = incoming.completedExercises || base.completedExercises;
+  merged.customTraining = incoming.customTraining || base.customTraining;
   return merged;
 }
 
@@ -511,44 +542,182 @@ function renderBodyAnalysis() {
     .join("");
 }
 
-function renderTraining() {
-  const week = [
-    { day: "Mon", zh: "推", en: "Push" },
-    { day: "Tue", zh: "拉", en: "Pull" },
-    { day: "Wed", zh: "腿", en: "Legs" },
-    { day: "Thu", zh: "推", en: "Push" },
-    { day: "Fri", zh: "拉", en: "Pull" },
-    { day: "Sat", zh: "腿", en: "Legs" },
-    { day: "Sun", zh: "恢复", en: "Reset" }
+let editingExerciseKey = "";
+
+function getTrainingPlan() {
+  return [
+    {
+      id: "mon",
+      day: "Mon",
+      zh: "推",
+      en: "Push",
+      titleZh: "推：上胸 + 肩宽",
+      titleEn: "Push: upper chest + width",
+      load: 76,
+      exercises: [
+        { id: "incline", zh: ["上斜哑铃卧推", "4 组，8-10 次"], en: ["Incline dumbbell press", "4 sets, 8-10 reps"] },
+        { id: "press", zh: ["坐姿肩推", "3 组，8-10 次"], en: ["Seated shoulder press", "3 sets, 8-10 reps"] },
+        { id: "lateral", zh: ["侧平举", "4 组，12-20 次"], en: ["Lateral raise", "4 sets, 12-20 reps"] },
+        { id: "fly", zh: ["绳索夹胸", "3 组，12-15 次"], en: ["Cable fly", "3 sets, 12-15 reps"] },
+        { id: "triceps", zh: ["绳索下压", "3 组，10-12 次"], en: ["Rope pressdown", "3 sets, 10-12 reps"] }
+      ]
+    },
+    {
+      id: "tue",
+      day: "Tue",
+      zh: "拉",
+      en: "Pull",
+      titleZh: "拉：背宽 + 体态",
+      titleEn: "Pull: back width + posture",
+      load: 72,
+      exercises: [
+        { id: "pullup", zh: ["引体向上或高位下拉", "4 组，8-12 次"], en: ["Pull-up or lat pulldown", "4 sets, 8-12 reps"] },
+        { id: "row", zh: ["胸托划船", "4 组，8-10 次"], en: ["Chest-supported row", "4 sets, 8-10 reps"] },
+        { id: "rear", zh: ["反向飞鸟", "3 组，15-20 次"], en: ["Reverse fly", "3 sets, 15-20 reps"] },
+        { id: "curl", zh: ["上斜哑铃弯举", "3 组，10-12 次"], en: ["Incline dumbbell curl", "3 sets, 10-12 reps"] },
+        { id: "core", zh: ["死虫 + 侧桥", "各 3 组"], en: ["Dead bug + side plank", "3 rounds each"] }
+      ]
+    },
+    {
+      id: "wed",
+      day: "Wed",
+      zh: "腿",
+      en: "Legs",
+      titleZh: "腿：臀腿 + 核心",
+      titleEn: "Legs: glutes + core",
+      load: 82,
+      exercises: [
+        { id: "squat", zh: ["深蹲或腿举", "4 组，6-10 次"], en: ["Squat or leg press", "4 sets, 6-10 reps"] },
+        { id: "rdl", zh: ["罗马尼亚硬拉", "4 组，8-10 次"], en: ["Romanian deadlift", "4 sets, 8-10 reps"] },
+        { id: "split", zh: ["保加利亚分腿蹲", "3 组，每侧 10 次"], en: ["Bulgarian split squat", "3 sets, 10 each side"] },
+        { id: "curl", zh: ["腿弯举", "3 组，12-15 次"], en: ["Leg curl", "3 sets, 12-15 reps"] },
+        { id: "abs", zh: ["悬垂举腿或卷腹", "3 组，10-15 次"], en: ["Hanging knee raise or crunch", "3 sets, 10-15 reps"] }
+      ]
+    },
+    {
+      id: "thu",
+      day: "Thu",
+      zh: "推",
+      en: "Push",
+      titleZh: "推：胸肩容量",
+      titleEn: "Push: chest + delt volume",
+      load: 70,
+      exercises: [
+        { id: "bench", zh: ["平板卧推或俯卧撑", "4 组，8-12 次"], en: ["Bench press or push-up", "4 sets, 8-12 reps"] },
+        { id: "machine", zh: ["器械推胸", "3 组，10-12 次"], en: ["Machine chest press", "3 sets, 10-12 reps"] },
+        { id: "lateral", zh: ["侧平举递减组", "3 轮"], en: ["Lateral raise drop set", "3 rounds"] },
+        { id: "yraise", zh: ["Y raise", "3 组，12-15 次"], en: ["Y raise", "3 sets, 12-15 reps"] },
+        { id: "plank", zh: ["平板支撑", "3 组，45 秒"], en: ["Plank", "3 sets, 45 seconds"] }
+      ]
+    },
+    {
+      id: "fri",
+      day: "Fri",
+      zh: "拉",
+      en: "Pull",
+      titleZh: "拉：背厚 + 后束",
+      titleEn: "Pull: back thickness + rear delts",
+      load: 74,
+      exercises: [
+        { id: "row", zh: ["杠铃或器械划船", "4 组，8-10 次"], en: ["Barbell or machine row", "4 sets, 8-10 reps"] },
+        { id: "pulldown", zh: ["宽握下拉", "4 组，10-12 次"], en: ["Wide-grip pulldown", "4 sets, 10-12 reps"] },
+        { id: "facepull", zh: ["面拉", "3 组，15-20 次"], en: ["Face pull", "3 sets, 15-20 reps"] },
+        { id: "shrug", zh: ["哑铃耸肩", "3 组，10-12 次"], en: ["Dumbbell shrug", "3 sets, 10-12 reps"] },
+        { id: "curl", zh: ["锤式弯举", "3 组，10-12 次"], en: ["Hammer curl", "3 sets, 10-12 reps"] }
+      ]
+    },
+    {
+      id: "sat",
+      day: "Sat",
+      zh: "腿",
+      en: "Legs",
+      titleZh: "腿：线条 + 稳定",
+      titleEn: "Legs: shape + stability",
+      load: 68,
+      exercises: [
+        { id: "front", zh: ["前蹲或哈克深蹲", "4 组，8-10 次"], en: ["Front squat or hack squat", "4 sets, 8-10 reps"] },
+        { id: "hipthrust", zh: ["臀推", "4 组，8-12 次"], en: ["Hip thrust", "4 sets, 8-12 reps"] },
+        { id: "extension", zh: ["腿屈伸", "3 组，12-15 次"], en: ["Leg extension", "3 sets, 12-15 reps"] },
+        { id: "calf", zh: ["提踵", "4 组，12-20 次"], en: ["Calf raise", "4 sets, 12-20 reps"] },
+        { id: "sideplank", zh: ["侧桥", "每侧 3 组"], en: ["Side plank", "3 sets each side"] }
+      ]
+    },
+    {
+      id: "sun",
+      day: "Sun",
+      zh: "恢复",
+      en: "Reset",
+      titleZh: "恢复：体态 + 复盘",
+      titleEn: "Reset: posture + review",
+      load: 36,
+      exercises: [
+        { id: "walk", zh: ["轻松步行", "30-45 分钟"], en: ["Easy walk", "30-45 minutes"] },
+        { id: "mobility", zh: ["胸椎活动", "8 分钟"], en: ["Thoracic mobility", "8 minutes"] },
+        { id: "hips", zh: ["髋屈肌拉伸", "每侧 60 秒"], en: ["Hip flexor stretch", "60 seconds each side"] },
+        { id: "breath", zh: ["仰卧呼吸", "3 组，6 次慢呼吸"], en: ["Supine breathing", "3 sets, 6 slow breaths"] },
+        { id: "review", zh: ["更新体重或照片", "记录本周变化"], en: ["Update weight or photos", "Log weekly changes"] }
+      ]
+    }
   ];
+}
+
+function getActiveTrainingDay() {
+  const week = getTrainingPlan();
+  return week.find((item) => item.id === state.activePlanDay) || week[0];
+}
+
+function cloneExercise(exercise) {
+  return {
+    id: exercise.id,
+    zh: [...exercise.zh],
+    en: [...exercise.en]
+  };
+}
+
+function ensureCustomTrainingDay(dayId) {
+  state.customTraining ||= {};
+  if (!state.customTraining[dayId]) {
+    const day = getTrainingPlan().find((item) => item.id === dayId);
+    state.customTraining[dayId] = (day?.exercises || []).map(cloneExercise);
+  }
+  return state.customTraining[dayId];
+}
+
+function getExercisesForDay(day) {
+  return state.customTraining?.[day.id] || day.exercises;
+}
+
+function renderTraining() {
+  const week = getTrainingPlan();
+  const activeDay = getActiveTrainingDay();
+  const activeExercises = getExercisesForDay(activeDay);
   $("#weekStrip").innerHTML = week
     .map(
-      (item, index) => `
-      <button class="day-pill ${index === 1 ? "is-active" : ""}" type="button">
+      (item) => `
+      <button class="day-pill ${item.id === activeDay.id ? "is-active" : ""}" data-plan-day="${item.id}" type="button">
         <strong>${item.day}</strong>
         <small>${state.lang === "zh" ? item.zh : item.en}</small>
       </button>`
     )
     .join("");
 
-  $("#trainingTitle").textContent = state.lang === "zh" ? "拉 + 体态" : "Pull + Posture";
-  const exercises = [
-    { id: "pullup", zh: ["引体向上或高位下拉", "4 组，8-12 次"], en: ["Pull-up or lat pulldown", "4 sets, 8-12 reps"] },
-    { id: "row", zh: ["胸托划船", "4 组，8-10 次"], en: ["Chest-supported row", "4 sets, 8-10 reps"] },
-    { id: "rear", zh: ["反向飞鸟", "3 组，15-20 次"], en: ["Reverse fly", "3 sets, 15-20 reps"] },
-    { id: "curl", zh: ["上斜哑铃弯举", "3 组，10-12 次"], en: ["Incline dumbbell curl", "3 sets, 10-12 reps"] },
-    { id: "core", zh: ["死虫 + 侧桥", "各 3 组"], en: ["Dead bug + side plank", "3 rounds each"] }
-  ];
-  $("#exerciseList").innerHTML = exercises
+  $("#trainingTitle").textContent = state.lang === "zh" ? activeDay.titleZh : activeDay.titleEn;
+  $("#trainingLoad").textContent = `${activeDay.load}%`;
+  $("#exerciseList").innerHTML = activeExercises
     .map((exercise) => {
       const [title, sets] = exercise[state.lang];
-      const done = state.completedExercises[exercise.id];
+      const exerciseKey = `${activeDay.id}:${exercise.id}`;
+      const done = state.completedExercises[exerciseKey];
       return `
-        <button class="exercise-item ${done ? "is-complete" : ""}" data-exercise="${exercise.id}" type="button">
+        <article class="exercise-item ${done ? "is-complete" : ""}" data-exercise="${exerciseKey}">
           <span class="check-dot"></span>
           <span><strong>${title}</strong><small>${sets}</small></span>
-          <span class="exercise-sets">${done ? "OK" : "+10 XP"}</span>
-        </button>
+          <span class="exercise-actions">
+            <span class="exercise-sets">${done ? "OK" : "+10 XP"}</span>
+            <button class="tiny-button" data-edit-exercise="${exerciseKey}" type="button">${t("edit")}</button>
+            <button class="tiny-button danger" data-delete-exercise="${exerciseKey}" type="button">${t("delete")}</button>
+          </span>
+        </article>
       `;
     })
     .join("");
@@ -565,6 +734,91 @@ function renderTraining() {
       return `<article><strong>${title}</strong><p>${detail}</p></article>`;
     })
     .join("");
+}
+
+function clearExerciseForm() {
+  editingExerciseKey = "";
+  $("#customExerciseName").value = "";
+  $("#customExerciseDetail").value = "";
+}
+
+function splitExerciseKey(key) {
+  const index = key.indexOf(":");
+  return {
+    dayId: key.slice(0, index),
+    exerciseId: key.slice(index + 1)
+  };
+}
+
+function editTrainingExercise(key) {
+  const { dayId, exerciseId } = splitExerciseKey(key);
+  state.activePlanDay = dayId;
+  const exercises = ensureCustomTrainingDay(dayId);
+  const exercise = exercises.find((item) => item.id === exerciseId);
+  if (!exercise) return;
+  editingExerciseKey = key;
+  const [title, detail] = exercise[state.lang];
+  $("#customExerciseName").value = title;
+  $("#customExerciseDetail").value = detail;
+  saveState();
+  renderTraining();
+}
+
+function deleteTrainingExercise(key) {
+  const { dayId, exerciseId } = splitExerciseKey(key);
+  state.activePlanDay = dayId;
+  const exercises = ensureCustomTrainingDay(dayId);
+  const index = exercises.findIndex((item) => item.id === exerciseId);
+  if (index === -1) return;
+  exercises.splice(index, 1);
+  delete state.completedExercises[key];
+  clearExerciseForm();
+  saveState();
+  renderTraining();
+}
+
+function saveCustomExercise() {
+  const name = $("#customExerciseName").value.trim();
+  const detail = $("#customExerciseDetail").value.trim();
+  if (!name) return;
+  const activeDay = getActiveTrainingDay();
+  const exercises = ensureCustomTrainingDay(activeDay.id);
+  const exercise = {
+    id: `custom-${Date.now()}`,
+    zh: [name, detail || "自定义"],
+    en: [name, detail || "Custom"]
+  };
+
+  if (editingExerciseKey) {
+    const { dayId, exerciseId } = splitExerciseKey(editingExerciseKey);
+    const targetExercises = ensureCustomTrainingDay(dayId);
+    const index = targetExercises.findIndex((item) => item.id === exerciseId);
+    if (index !== -1) {
+      targetExercises[index].zh = [name, detail || "自定义"];
+      targetExercises[index].en = [name, detail || "Custom"];
+    }
+  } else {
+    exercises.push(exercise);
+  }
+
+  clearExerciseForm();
+  saveState();
+  renderTraining();
+  flashButton("#saveExerciseButton", t("exercise_saved"));
+}
+
+function resetActiveTrainingDay() {
+  state.customTraining ||= {};
+  delete state.customTraining[state.activePlanDay];
+  Object.keys(state.completedExercises).forEach((key) => {
+    if (key.startsWith(`${state.activePlanDay}:`)) {
+      delete state.completedExercises[key];
+    }
+  });
+  clearExerciseForm();
+  saveState();
+  renderTraining();
+  flashButton("#resetTrainingButton", t("training_reset_done"));
 }
 
 function renderWeeklyChart() {
@@ -866,7 +1120,26 @@ function bindEvents() {
     flashButton("#futureButton", t("future_done"));
   });
 
+  $("#weekStrip").addEventListener("click", (event) => {
+    const item = event.target.closest("[data-plan-day]");
+    if (!item) return;
+    state.activePlanDay = item.dataset.planDay;
+    clearExerciseForm();
+    saveState();
+    renderTraining();
+  });
+
   $("#exerciseList").addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-exercise]");
+    if (editButton) {
+      editTrainingExercise(editButton.dataset.editExercise);
+      return;
+    }
+    const deleteButton = event.target.closest("[data-delete-exercise]");
+    if (deleteButton) {
+      deleteTrainingExercise(deleteButton.dataset.deleteExercise);
+      return;
+    }
     const item = event.target.closest("[data-exercise]");
     if (!item) return;
     const id = item.dataset.exercise;
@@ -875,6 +1148,10 @@ function bindEvents() {
     saveState();
     renderAll();
   });
+
+  $("#saveExerciseButton").addEventListener("click", saveCustomExercise);
+  $("#clearExerciseButton").addEventListener("click", clearExerciseForm);
+  $("#resetTrainingButton").addEventListener("click", resetActiveTrainingDay);
 
   $("#saveProfileButton").addEventListener("click", () => {
     state.profile = {
