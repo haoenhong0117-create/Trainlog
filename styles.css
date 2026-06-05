@@ -42,7 +42,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -78,6 +79,20 @@ button {
 
 .topbar h1 {
   font-size: 1.16rem;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.version-button {
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(121, 215, 255, 0.28);
+  border-radius: 6px;
+  background: var(--cyan-soft);
+  color: var(--cyan);
+  font-size: 0.68rem;
+  font-weight: 900;
 }
 
 .screen h2,
@@ -705,7 +720,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -721,7 +737,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: rgba(118, 247, 160, 0.65);
   box-shadow: 0 0 0 3px rgba(118, 247, 160, 0.08);
 }
@@ -745,6 +762,12 @@ textarea:focus {
   color: #101111;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  filter: grayscale(0.65);
+}
+
 .secondary-button {
   background: rgba(255, 255, 255, 0.055);
 }
@@ -757,6 +780,15 @@ textarea:focus {
 .confidence-pill {
   background: var(--amber-soft);
   color: var(--amber);
+}
+
+.verified-pill {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.manual-label-panel .primary-button {
+  margin-top: 12px;
 }
 
 .nutrition-grid {
@@ -841,6 +873,25 @@ textarea:focus {
   margin: 5px 0;
   font-size: 0.75rem;
   line-height: 1.35;
+}
+
+.food-history-item.needs-review {
+  border-color: rgba(255, 139, 123, 0.38);
+  background: var(--coral-soft);
+}
+
+.history-actions {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.review-badge {
+  display: block;
+  margin-top: 7px;
+  color: var(--coral);
+  font-size: 0.7rem;
+  font-weight: 900;
 }
 
 .body-upload-grid {
@@ -1167,6 +1218,11 @@ textarea:focus {
   color: var(--green);
 }
 
+#foodAiStatusPill.is-error {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
 #syncStatusPill.is-error {
   background: var(--coral-soft);
   color: var(--coral);
@@ -1331,6 +1387,11 @@ textarea:focus {
   .food-history-item > button {
     grid-column: 2;
     justify-self: start;
+  }
+
+  .history-actions {
+    grid-column: 2;
+    justify-items: start;
   }
 
   .score-orbit {

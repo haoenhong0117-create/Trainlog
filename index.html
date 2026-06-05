@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=9" />
+    <link rel="stylesheet" href="styles.css?v=10" />
   </head>
   <body>
     <div class="app-shell">
@@ -18,7 +18,7 @@
         </button>
         <div>
           <p class="eyebrow" data-i18n="top_eyebrow">AI 身材教练</p>
-          <h1>TrainLog</h1>
+          <h1>TrainLog <button class="version-button" id="checkUpdateButton" type="button" aria-label="Check for updates">v10</button></h1>
         </div>
         <button class="language-toggle" id="languageToggle" type="button" aria-label="Switch language">EN</button>
       </header>
@@ -161,6 +161,48 @@
             <p class="privacy-note" data-i18n="ai_photo_privacy">启用真实 AI 分析后，所选食物照片会发送到你配置的 AI 服务。</p>
           </section>
 
+          <section class="section-block manual-label-panel" id="manualLabelPanel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="manual_label_eyebrow">可靠后备</p>
+                <h3 data-i18n="manual_label_title">手动营养表计算</h3>
+              </div>
+              <span class="confidence-pill verified-pill" data-i18n="manual_label">营养表计算</span>
+            </div>
+            <p class="muted" data-i18n="manual_label_intro">把包装上同一栏的热量和营养素输入，再填写实际吃下的份数、个数或克数。</p>
+            <div class="field-grid">
+              <label>
+                <span data-i18n="label_basis">标签基准</span>
+                <select id="labelBasisInput">
+                  <option value="per_serving" data-i18n="per_serving">每份</option>
+                  <option value="per_unit" data-i18n="per_unit">每片 / 每个</option>
+                  <option value="per_100g" data-i18n="per_100g">每 100g</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="consumed_multiplier">实际吃下数量</span>
+                <input id="labelConsumedInput" type="number" min="0" step="0.01" inputmode="decimal" placeholder="1" />
+              </label>
+              <label>
+                <span data-i18n="label_calories">标签热量 kcal</span>
+                <input id="labelCaloriesInput" type="number" min="0" step="0.1" inputmode="decimal" />
+              </label>
+              <label>
+                <span data-i18n="label_protein">标签蛋白质 g</span>
+                <input id="labelProteinInput" type="number" min="0" step="0.1" inputmode="decimal" />
+              </label>
+              <label>
+                <span data-i18n="label_carbs">标签碳水 g</span>
+                <input id="labelCarbsInput" type="number" min="0" step="0.1" inputmode="decimal" />
+              </label>
+              <label>
+                <span data-i18n="label_fat">标签脂肪 g</span>
+                <input id="labelFatInput" type="number" min="0" step="0.1" inputmode="decimal" />
+              </label>
+            </div>
+            <button class="primary-button full" id="calculateLabelButton" type="button" data-i18n="calculate_label">按营养表计算</button>
+          </section>
+
           <section class="section-block">
             <div class="section-heading">
               <div>
@@ -176,7 +218,7 @@
               <div><span data-i18n="fat">脂肪</span><strong id="resultFat">--</strong></div>
             </div>
             <div class="button-row">
-              <button class="primary-button" id="addFoodToTodayButton" type="button" data-i18n="add_to_today">加入今日</button>
+              <button class="primary-button" id="addFoodToTodayButton" type="button" data-i18n="add_to_today" disabled>加入今日</button>
               <button class="secondary-button" id="clearTodayFoodButton" type="button" data-i18n="clear_today_food">清空今日饮食</button>
             </div>
             <p class="muted" id="foodCoachNote" data-i18n="food_empty_note">拍照或输入后会生成热量、宏量营养和准确度建议。</p>
@@ -426,6 +468,7 @@
             </label>
             <div class="button-row wrap">
               <button class="secondary-button" id="saveSyncButton" type="button" data-i18n="save_sync">保存同步设置</button>
+              <button class="secondary-button" id="testAiButton" type="button" data-i18n="test_ai">检查 AI 连接</button>
               <button class="primary-button" id="pushSyncButton" type="button" data-i18n="push_sync">上传到云端</button>
               <button class="secondary-button" id="pullSyncButton" type="button" data-i18n="pull_sync">从云端恢复</button>
             </div>
@@ -463,6 +506,6 @@
       </nav>
     </div>
 
-    <script src="app.js?v=9" defer></script>
+    <script src="app.js?v=10" defer></script>
   </body>
 </html>

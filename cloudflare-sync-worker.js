@@ -102,6 +102,7 @@ Accuracy rules, in priority order:
 }
 
 function validateNutritionResult(result, input) {
+  const blockReasons = [];
   const normalized = {
     ...result,
     calories: Math.max(0, Number(result.calories) || 0),
@@ -110,13 +111,35 @@ function validateNutritionResult(result, input) {
     fat: Math.max(0, Number(result.fat) || 0),
     consumedWeightGrams: Math.max(0, Number(result.consumedWeightGrams) || Number(input.grams) || 0),
     confidence: Math.min(99, Math.max(1, Number(result.confidence) || 1)),
-    warnings: Array.isArray(result.warnings) ? result.warnings : []
+    warnings: Array.isArray(result.warnings) ? result.warnings : [],
+    recordable: true,
+    blockReasons
   };
 
   if (normalized.source === "ai_exact_label" && !(input.labelImages || []).length) {
     normalized.source = "ai_visual_estimate";
     normalized.confidence = Math.min(normalized.confidence, 55);
     normalized.warnings.push("Exact label calculation was rejected because no nutrition-label image was supplied.");
+    blockReasons.push("No nutrition-label image supported the exact-label result.");
+  }
+
+  if (input.mode === "package") {
+    if (!(input.labelImages || []).length) {
+      blockReasons.push("Packaged food requires a readable nutrition-label image.");
+    }
+    if (!String(input.amount || "").trim() && !(Number(input.grams) > 0)) {
+      blockReasons.push("Packaged food requires the amount eaten or consumed grams.");
+    }
+    if (normalized.source !== "ai_exact_label" || normalized.confidence < 75) {
+      blockReasons.push("The package label could not be read and scaled with high confidence.");
+    }
+  } else if (input.mode === "meal") {
+    if (!(input.foodImages || []).length) {
+      blockReasons.push("Meal visual estimation requires at least one food photo.");
+    }
+    if (normalized.confidence < 65) {
+      blockReasons.push("Meal visual estimate confidence was below 65%.");
+    }
   }
 
   if (
@@ -125,6 +148,7 @@ function validateNutritionResult(result, input) {
   ) {
     normalized.confidence = Math.min(normalized.confidence, 30);
     normalized.warnings.push("A macro exceeded the consumed food weight. Verify the nutrition label and amount eaten.");
+    blockReasons.push("A macro exceeded the known consumed food weight.");
   }
 
   const macroCalories = 4 * normalized.protein + 4 * normalized.carbs + 9 * normalized.fat;
@@ -132,8 +156,10 @@ function validateNutritionResult(result, input) {
   if (Math.abs(macroCalories - normalized.calories) > allowedDifference) {
     normalized.confidence = Math.min(normalized.confidence, 60);
     normalized.warnings.push("Calories and macro-derived calories differ substantially. Verify the label.");
+    blockReasons.push("Calories conflicted with macro-derived calories.");
   }
 
+  normalized.recordable = blockReasons.length === 0;
   return normalized;
 }
 
@@ -190,6 +216,20 @@ export default {
     }
 
     const url = new URL(request.url);
+    if (url.pathname === "/health" && request.method === "GET") {
+      if (!requireAiAccess(request, env)) {
+        return json({ ok: false, error: "Invalid AI access key" }, 401);
+      }
+      const status = {
+        ok: Boolean(env.GEMINI_API_KEY && env.TRAINLOG_AI_KEY),
+        aiConfigured: Boolean(env.GEMINI_API_KEY),
+        authConfigured: Boolean(env.TRAINLOG_AI_KEY),
+        primaryModel: env.GEMINI_MODEL || "gemini-3-pro-preview",
+        fallbackModel: "gemini-2.5-pro"
+      };
+      return json(status, status.ok ? 200 : 503);
+    }
+
     if (url.pathname === "/analyze-food" && request.method === "POST") {
       if (!requireAiAccess(request, env)) {
         return json({ error: "Invalid AI access key" }, 401);
@@ -205,7 +245,7 @@ export default {
 
     const key = syncKeyFromUrl(request);
     if (!key) {
-      return json({ error: "Use /analyze-food or /sync/<your-private-sync-key>" }, 404);
+      return json({ error: "Use /health, /analyze-food, or /sync/<your-private-sync-key>" }, 404);
     }
 
     if (!env.TRAINLOG_KV) {

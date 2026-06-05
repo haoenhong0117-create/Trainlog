@@ -1,4 +1,5 @@
 const STORAGE_KEY = "trainlog-v2";
+const APP_VERSION = "10";
 
 const translations = {
   zh: {
@@ -329,6 +330,79 @@ const translations = {
   }
 };
 
+const v10Translations = {
+  zh: {
+    check_update: "检查更新",
+    update_checking: "正在检查更新...",
+    update_ready: "发现新版本，正在更新...",
+    up_to_date: "已是最新版本",
+    ai_disconnected: "真实 AI 未连接",
+    ai_checking: "正在检查 AI...",
+    ai_unhealthy: "AI 后端未就绪",
+    analysis_blocked: "分析已拦截",
+    connect_ai_or_manual: "未连接健康的真实 AI。请先检查 AI 连接，或使用下方营养表计算器。",
+    unreadable_or_low_confidence: "AI 无法可靠读取或结果存在冲突，因此没有生成可记录数字。",
+    manual_label_eyebrow: "可靠后备",
+    manual_label_title: "手动营养表计算",
+    manual_label_intro: "把包装上同一栏的热量和营养素输入，再填写实际吃下的份数、个数或克数。",
+    label_basis: "标签基准",
+    per_serving: "每份",
+    per_unit: "每片 / 每个",
+    per_100g: "每 100g",
+    label_calories: "标签热量 kcal",
+    label_protein: "标签蛋白质 g",
+    label_carbs: "标签碳水 g",
+    label_fat: "标签脂肪 g",
+    consumed_multiplier: "实际吃下数量",
+    calculate_label: "按营养表计算",
+    manual_label: "营养表计算",
+    needs_review: "待复核，不计入总量",
+    review_log: "重新填写",
+    blocked_not_recorded: "此结果未记录，也不能加入今日。",
+    test_ai: "检查 AI 连接",
+    ai_health_ok: "真实 AI 已连接",
+    ai_health_failed: "AI 检查失败",
+    nutrition_fields_required: "请填写实际吃下数量和完整营养表数字。",
+    nutrition_conflict: "营养数字存在明显冲突，请核对标签。",
+    favorite_requires_verified: "只有已验证的结果才可以收藏。"
+  },
+  en: {
+    check_update: "Check update",
+    update_checking: "Checking for updates...",
+    update_ready: "Update found. Refreshing...",
+    up_to_date: "Up to date",
+    ai_disconnected: "Real AI disconnected",
+    ai_checking: "Checking AI...",
+    ai_unhealthy: "AI backend not ready",
+    analysis_blocked: "Analysis blocked",
+    connect_ai_or_manual: "A healthy real AI connection is required. Check AI or use the nutrition-label calculator below.",
+    unreadable_or_low_confidence: "AI could not read this reliably or found conflicting values, so no recordable numbers were created.",
+    manual_label_eyebrow: "Reliable fallback",
+    manual_label_title: "Nutrition-label calculator",
+    manual_label_intro: "Enter calories and macros from one label column, then enter the servings, units, or grams actually eaten.",
+    label_basis: "Label basis",
+    per_serving: "Per serving",
+    per_unit: "Per slice / unit",
+    per_100g: "Per 100g",
+    label_calories: "Label calories kcal",
+    label_protein: "Label protein g",
+    label_carbs: "Label carbs g",
+    label_fat: "Label fat g",
+    consumed_multiplier: "Amount actually eaten",
+    calculate_label: "Calculate from label",
+    manual_label: "Label calculation",
+    needs_review: "Needs review, excluded from totals",
+    review_log: "Refill form",
+    blocked_not_recorded: "This result was not recorded and cannot be added today.",
+    test_ai: "Check AI connection",
+    ai_health_ok: "Real AI connected",
+    ai_health_failed: "AI check failed",
+    nutrition_fields_required: "Enter the amount eaten and every nutrition-label value.",
+    nutrition_conflict: "The nutrition values conflict. Check the label.",
+    favorite_requires_verified: "Only verified results can be saved."
+  }
+};
+
 const defaultState = {
   lang: "zh",
   calories: 0,
@@ -342,7 +416,7 @@ const defaultState = {
   activePlanDay: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date().getDay()],
   favorites: [],
   foodLogs: [],
-  foodLogVersion: 1,
+  foodLogVersion: 2,
   customTraining: {},
   quests: [
     { id: "protein", titleZh: "蛋白质达到 135g", titleEn: "Reach 135g protein", detailZh: "从第一餐开始记录", detailEn: "Start with your first meal", xp: 40, done: false },
@@ -365,7 +439,9 @@ const defaultState = {
     lastStatus: ""
   },
   ai: {
-    endpoint: ""
+    endpoint: "",
+    healthy: false,
+    checkedAt: ""
   },
   updatedAt: ""
 };
@@ -374,6 +450,8 @@ let state = loadState();
 let pendingFoodEstimate = null;
 let foodImages = [];
 let labelImages = [];
+let reviewingFoodLogId = "";
+let updateReloading = false;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -397,12 +475,22 @@ function mergeState(base, incoming) {
   merged.foodLogs = Array.isArray(incoming.foodLogs) ? incoming.foodLogs : base.foodLogs;
   merged.completedExercises = incoming.completedExercises || base.completedExercises;
   merged.customTraining = incoming.customTraining || base.customTraining;
-  if (incoming.foodLogVersion !== 1) {
-    merged.foodLogs = [];
-    merged.calories = 0;
-    merged.protein = 0;
-    merged.foodLogVersion = 1;
+  if (incoming.foodLogVersion !== 2) {
+    merged.foodLogs = merged.foodLogs.map((item) => {
+      const needsReview = item.source === "local_rough_estimate" || !item.source;
+      return {
+        ...item,
+        needsReview,
+        recordable: !needsReview && item.recordable !== false
+      };
+    });
+    merged.foodLogVersion = 2;
   }
+  merged.foodLogs = merged.foodLogs.map((item) => ({
+    ...item,
+    needsReview: Boolean(item.needsReview || item.source === "local_rough_estimate" || !item.source),
+    recordable: item.needsReview || item.source === "local_rough_estimate" || !item.source ? false : item.recordable !== false
+  }));
   return merged;
 }
 
@@ -414,7 +502,7 @@ function saveState(options = {}) {
 }
 
 function t(key) {
-  return translations[state.lang][key] || translations.zh[key] || key;
+  return v10Translations[state.lang]?.[key] || translations[state.lang][key] || v10Translations.zh[key] || translations.zh[key] || key;
 }
 
 function setLanguage(lang) {
@@ -512,11 +600,12 @@ function renderFoodHistory() {
   $("#foodHistoryList").innerHTML = logs
     .map((item) => {
       const source = t(item.source || "local_rough_estimate");
+      const needsReview = item.needsReview || item.recordable === false;
       const time = item.createdAt
         ? new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         : "";
       return `
-        <article class="food-history-item">
+        <article class="food-history-item ${needsReview ? "needs-review" : ""}">
           ${item.thumbnail ? `<img src="${item.thumbnail}" alt="" />` : `<div class="food-history-placeholder"></div>`}
           <div>
             <div class="food-history-heading">
@@ -526,7 +615,10 @@ function renderFoodHistory() {
             <p>${item.calories} kcal · P ${item.protein}g · C ${item.carbs || 0}g · F ${item.fat || 0}g</p>
             <small>${escapeHtml(source)}${item.servingSummary ? ` · ${escapeHtml(item.servingSummary)}` : ""}</small>
           </div>
-          <button class="tiny-button danger" data-delete-food-log="${escapeHtml(item.id)}" type="button">${t("delete_log")}</button>
+          <div class="history-actions">
+            ${needsReview ? `<span class="review-badge">${t("needs_review")}</span><button class="tiny-button" data-review-food-log="${escapeHtml(item.id)}" type="button">${t("review_log")}</button>` : ""}
+            <button class="tiny-button danger" data-delete-food-log="${escapeHtml(item.id)}" type="button">${t("delete_log")}</button>
+          </div>
         </article>
       `;
     })
@@ -553,6 +645,7 @@ function renderMealType() {
   $("#labelPreviewGrid").hidden = !config.showLabelUpload;
   $("#cameraActionRow").hidden = !config.showFoodUpload;
   $("#takeLabelPhotoButton").hidden = !config.showLabelUpload;
+  $("#manualLabelPanel").hidden = state.activeMealType === "meal";
   $("#takeFoodPhotoLabel").textContent =
     state.activeMealType === "package"
       ? state.lang === "zh"
@@ -566,9 +659,10 @@ function renderMealType() {
 
 function renderFoodAiStatus() {
   const pill = $("#foodAiStatusPill");
-  const ready = Boolean(aiEndpoint());
-  pill.textContent = ready ? t("real_ai_ready") : t("rough_mode");
+  const ready = Boolean(aiEndpoint() && state.ai.healthy);
+  pill.textContent = ready ? t("real_ai_ready") : t("ai_disconnected");
   pill.classList.toggle("is-online", ready);
+  pill.classList.toggle("is-error", !ready);
 }
 
 function mealModeConfig() {
@@ -587,13 +681,7 @@ function mealModeConfig() {
       gramsPlaceholder: zh ? "可选，例：450" : "Optional, e.g. 450",
       notesPlaceholder: zh ? "例如：少油，半碗饭，牛肉一掌" : "Example: low oil, half bowl rice, one palm beef",
       showFoodUpload: true,
-      showLabelUpload: false,
-      defaultGrams: 420,
-      caloriesPerGram: 1.35,
-      proteinRatio: 0.105,
-      carbsRatio: 0.24,
-      fatRatio: 0.035,
-      baseConfidence: 58
+      showLabelUpload: false
     },
     package: {
       title: zh ? "包装食品模式" : "Packaged food mode",
@@ -608,13 +696,7 @@ function mealModeConfig() {
       gramsPlaceholder: zh ? "可选，例：80" : "Optional, e.g. 80",
       notesPlaceholder: zh ? "例如：一包吃完，或只吃了一半" : "Example: whole pack, or only half",
       showFoodUpload: true,
-      showLabelUpload: true,
-      defaultGrams: 80,
-      caloriesPerGram: 3.4,
-      proteinRatio: 0.08,
-      carbsRatio: 0.52,
-      fatRatio: 0.12,
-      baseConfidence: 64
+      showLabelUpload: true
     },
     manual: {
       title: zh ? "手动输入模式" : "Manual mode",
@@ -629,13 +711,7 @@ function mealModeConfig() {
       gramsPlaceholder: zh ? "建议填写，例：330" : "Recommended, e.g. 330",
       notesPlaceholder: zh ? "例如：按熟重，鸡胸无皮，米饭一碗" : "Example: cooked weight, skinless chicken, one bowl rice",
       showFoodUpload: false,
-      showLabelUpload: false,
-      defaultGrams: 300,
-      caloriesPerGram: 1.5,
-      proteinRatio: 0.13,
-      carbsRatio: 0.25,
-      fatRatio: 0.04,
-      baseConfidence: 62
+      showLabelUpload: false
     }
   };
 }
@@ -648,85 +724,11 @@ function hasLabelPhotos() {
   return labelImages.length > 0;
 }
 
-function parseAmountCount(amount) {
-  const normalized = amount.toLowerCase().replace(",", ".");
-  if (/(半|half)/i.test(normalized)) return 0.5;
-  const match = normalized.match(/(\d+(?:\.\d+)?)/);
-  return match ? Number(match[1]) : 0;
-}
-
-function breadSliceRoughEstimate(amount, name) {
-  const sliceCount = parseAmountCount(amount);
-  const looksLikeSlices = /(片|slice|slices)/i.test(amount);
-  if (!sliceCount || !looksLikeSlices) return null;
-  return {
-    name: name || (state.lang === "zh" ? "面包片（粗略）" : "Bread slices (rough)"),
-    calories: Math.round(sliceCount * 100.5),
-    protein: Number((sliceCount * 3.7).toFixed(1)),
-    carbs: Number((sliceCount * 17.95).toFixed(1)),
-    fat: Number((sliceCount * 1.25).toFixed(1)),
-    confidence: 34,
-    mode: state.activeMealType,
-    source: "local_rough_estimate",
-    servingSummary: amount,
-    reasoning:
-      state.lang === "zh"
-        ? `粗略模式无法读取照片，暂按普通全麦面包每片约 101 kcal 估算。`
-        : "Rough mode cannot read photos, so this temporarily uses about 101 kcal per wholemeal bread slice.",
-    warnings: [
-      state.lang === "zh"
-        ? "这不是营养表识别结果；连接真实 AI 后才能读取包装上的每份数据。"
-        : "This is not a nutrition-label reading. Connect real AI to read the package values."
-    ]
-  };
-}
-
-function localFoodEstimate() {
-  const grams = Number($("#foodGrams").value || 0);
-  const amount = $("#foodAmount").value.trim();
-  const name = $("#foodName").value.trim() || (state.lang === "zh" ? "未命名食物" : "Unnamed food");
-  if (!grams) {
-    const sliceEstimate = breadSliceRoughEstimate(amount, $("#foodName").value.trim());
-    if (sliceEstimate) return sliceEstimate;
-  }
-  const config = mealModeConfig()[state.activeMealType] || mealModeConfig().meal;
-  const effectiveGrams = grams || config.defaultGrams;
-  const hasFoodPhoto = hasFoodPhotos();
-  const hasLabel = hasLabelPhotos();
-  const hasNotes = Boolean($("#foodNotes").value.trim());
-  const calories = Math.round(effectiveGrams * config.caloriesPerGram);
-  const protein = Math.round(clamp(effectiveGrams * config.proteinRatio, 2, 75));
-  const carbs = Math.round(clamp(effectiveGrams * config.carbsRatio, 0, 150));
-  const fat = Math.round(clamp(effectiveGrams * config.fatRatio, 0, 45));
-  const confidence = clamp(
-    28 +
-      (grams ? 10 : 0) +
-      (hasFoodPhoto && config.showFoodUpload ? 3 : 0) +
-      (hasLabel && state.activeMealType === "package" ? 3 : 0) +
-      (hasNotes ? 5 : 0),
-    20,
-    49
-  );
-
-  return {
-    name,
-    calories,
-    protein,
-    carbs,
-    fat,
-    confidence,
-    mode: state.activeMealType,
-    source: "local_rough_estimate",
-    servingSummary: amount || (grams ? `${grams}g` : `~${effectiveGrams}g`),
-    reasoning:
-      state.lang === "zh"
-        ? "未连接真实视觉 AI，仅按食物模式和克数进行粗略计算。"
-        : "Real vision AI is not connected; this uses only mode and grams.",
-    warnings: [t("ai_not_configured")]
-  };
-}
-
 function renderFoodEstimate(result) {
+  if (!result?.recordable) {
+    blockFoodEstimate(result?.warnings?.join(" ") || t("unreadable_or_low_confidence"));
+    return;
+  }
   $("#foodResultTitle").textContent = result.name;
   $("#resultCalories").textContent = `${Math.round(result.calories)} kcal`;
   $("#resultProtein").textContent = `${Number(result.protein).toFixed(1)}g`;
@@ -739,6 +741,8 @@ function renderFoodEstimate(result) {
   $("#foodCoachNote").textContent = `${sourceLabel} · ${result.servingSummary || ""}.${calculationText} ${result.reasoning || ""}${warningText}`;
   pendingFoodEstimate = {
     ...result,
+    recordable: true,
+    needsReview: false,
     calories: Math.round(Number(result.calories) || 0),
     protein: Number(Number(result.protein || 0).toFixed(1)),
     carbs: Number(Number(result.carbs || 0).toFixed(1)),
@@ -748,10 +752,57 @@ function renderFoodEstimate(result) {
     thumbnail: foodImages[0]?.thumbnail || labelImages[0]?.thumbnail || "",
     notes: $("#foodNotes").value.trim()
   };
+  $("#addFoodToTodayButton").disabled = false;
 }
 
 function aiEndpoint() {
   return (state.ai.endpoint || state.sync.endpoint || "").replace(/\/+$/, "");
+}
+
+function clearFoodEstimateNumbers() {
+  pendingFoodEstimate = null;
+  $("#foodResultTitle").textContent = t("analysis_blocked");
+  $("#resultCalories").textContent = "--";
+  $("#resultProtein").textContent = "--";
+  $("#resultCarbs").textContent = "--";
+  $("#resultFat").textContent = "--";
+  $("#confidencePill").textContent = t("needs_review");
+  $("#addFoodToTodayButton").disabled = true;
+}
+
+function blockFoodEstimate(message) {
+  clearFoodEstimateNumbers();
+  $("#foodCoachNote").textContent = `${message} ${t("blocked_not_recorded")}`;
+}
+
+async function checkAiHealth(options = {}) {
+  const endpoint = aiEndpoint();
+  const button = $("#testAiButton");
+  if (button && options.feedback !== false) button.textContent = t("ai_checking");
+  state.ai.healthy = false;
+  state.ai.checkedAt = new Date().toISOString();
+  if (!endpoint) {
+    saveState({ touch: false });
+    renderFoodAiStatus();
+    if (button && options.feedback !== false) flashButton("#testAiButton", t("ai_health_failed"));
+    return false;
+  }
+  try {
+    const response = await fetch(`${endpoint}/health`, {
+      headers: { "X-TrainLog-Key": state.sync.key || "" },
+      cache: "no-store"
+    });
+    const payload = await response.json();
+    state.ai.healthy = Boolean(response.ok && payload.ok && payload.aiConfigured && payload.authConfigured);
+  } catch {
+    state.ai.healthy = false;
+  }
+  saveState({ touch: false });
+  renderFoodAiStatus();
+  if (button && options.feedback !== false) {
+    flashButton("#testAiButton", state.ai.healthy ? t("ai_health_ok") : t("ai_health_failed"));
+  }
+  return state.ai.healthy;
 }
 
 async function estimateFood() {
@@ -763,8 +814,11 @@ async function estimateFood() {
 
   try {
     if (!endpoint) {
-      const rough = localFoodEstimate();
-      renderFoodEstimate(rough);
+      blockFoodEstimate(t("connect_ai_or_manual"));
+      return;
+    }
+    if (!state.ai.healthy && !(await checkAiHealth({ feedback: false }))) {
+      blockFoodEstimate(t("connect_ai_or_manual"));
       return;
     }
 
@@ -787,15 +841,64 @@ async function estimateFood() {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
-    renderFoodEstimate(result);
+    if (!result.recordable) {
+      blockFoodEstimate([t("unreadable_or_low_confidence"), ...(result.blockReasons || []), ...(result.warnings || [])].join(" "));
+      return;
+    }
+    renderFoodEstimate({ ...result, recordable: true, needsReview: false });
   } catch {
-    const rough = localFoodEstimate();
-    rough.warnings = [t("ai_failed"), t("ai_fallback_rough")];
-    renderFoodEstimate(rough);
+    state.ai.healthy = false;
+    saveState({ touch: false });
+    renderFoodAiStatus();
+    blockFoodEstimate(t("ai_failed"));
   } finally {
     button.disabled = false;
     button.textContent = original;
   }
+}
+
+function calculateManualLabel() {
+  const basis = $("#labelBasisInput").value;
+  const rawFields = [
+    $("#labelConsumedInput").value,
+    $("#labelCaloriesInput").value,
+    $("#labelProteinInput").value,
+    $("#labelCarbsInput").value,
+    $("#labelFatInput").value
+  ];
+  const consumed = Number($("#labelConsumedInput").value);
+  const calories = Number($("#labelCaloriesInput").value);
+  const protein = Number($("#labelProteinInput").value);
+  const carbs = Number($("#labelCarbsInput").value);
+  const fat = Number($("#labelFatInput").value);
+  const values = [consumed, calories, protein, carbs, fat];
+  if (rawFields.some((value) => value === "") || !values.every(Number.isFinite) || consumed <= 0 || values.slice(1).some((value) => value < 0)) {
+    blockFoodEstimate(t("nutrition_fields_required"));
+    return;
+  }
+  const multiplier = basis === "per_100g" ? consumed / 100 : consumed;
+  const result = {
+    name: $("#foodName").value.trim() || (state.lang === "zh" ? "营养表食品" : "Nutrition-label food"),
+    calories: calories * multiplier,
+    protein: protein * multiplier,
+    carbs: carbs * multiplier,
+    fat: fat * multiplier,
+    confidence: 100,
+    mode: state.activeMealType,
+    source: "manual_label",
+    recordable: true,
+    needsReview: false,
+    servingSummary: `${t(basis)} × ${consumed}`,
+    calculation: `${multiplier.toFixed(2)} × label values`,
+    reasoning: state.lang === "zh" ? "由你输入的营养表数值直接计算。" : "Calculated directly from the nutrition-label values you entered.",
+    warnings: []
+  };
+  const macroCalories = 4 * result.protein + 4 * result.carbs + 9 * result.fat;
+  if (result.calories > 0 && Math.abs(macroCalories - result.calories) > Math.max(80, result.calories * 0.45)) {
+    blockFoodEstimate(t("nutrition_conflict"));
+    return;
+  }
+  renderFoodEstimate(result);
 }
 
 function todayKey() {
@@ -808,14 +911,21 @@ function todayKey() {
 
 function recalculateFoodTotals() {
   const today = todayKey();
-  const todayLogs = state.foodLogs.filter((item) => item.date === today);
+  const todayLogs = state.foodLogs.filter((item) => item.date === today && item.recordable !== false && !item.needsReview);
   state.calories = todayLogs.reduce((total, item) => total + Number(item.calories || 0), 0);
   state.protein = todayLogs.reduce((total, item) => total + Number(item.protein || 0), 0);
 }
 
 function addFoodLog(item) {
+  if (!item?.recordable || item.needsReview) return;
+  if (reviewingFoodLogId) {
+    state.foodLogs = state.foodLogs.filter((log) => log.id !== reviewingFoodLogId);
+    reviewingFoodLogId = "";
+  }
   state.foodLogs.push({
     ...item,
+    recordable: true,
+    needsReview: false,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     date: todayKey(),
     createdAt: new Date().toISOString()
@@ -834,12 +944,29 @@ function addPendingFoodToToday() {
   }
   addFoodLog(pendingFoodEstimate);
   pendingFoodEstimate = null;
+  $("#addFoodToTodayButton").disabled = true;
   foodImages = [];
   labelImages = [];
   renderFoodImagePreviews();
   $("#foodCoachNote").textContent =
     state.lang === "zh" ? "已记录一次，不会因为重复估算而累加。" : "Logged once. Re-estimating will not add duplicates.";
   flashButton("#addFoodToTodayButton", t("added_to_today"));
+}
+
+function refillFoodLog(id) {
+  const item = state.foodLogs.find((log) => log.id === id);
+  if (!item) return;
+  reviewingFoodLogId = id;
+  $("#foodName").value = item.name || "";
+  $("#foodAmount").value = item.servingSummary || "";
+  $("#foodGrams").value = "";
+  $("#foodNotes").value = item.notes || "";
+  state.activeMealType = item.mode === "meal" ? "meal" : "package";
+  saveState();
+  renderMealType();
+  clearFoodEstimateNumbers();
+  $("#foodCoachNote").textContent = t("needs_review");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function clearTodayFood() {
@@ -854,18 +981,23 @@ function clearTodayFood() {
 }
 
 function saveFavorite() {
+  if (!pendingFoodEstimate?.recordable) {
+    $("#foodCoachNote").textContent = t("favorite_requires_verified");
+    flashButton("#saveFavoriteButton", t("favorite_requires_verified"));
+    return;
+  }
   const name = $("#foodName").value.trim() || (state.lang === "zh" ? "常用食物" : "Saved food");
   const caloriesText = $("#resultCalories").textContent;
   const proteinText = $("#resultProtein").textContent;
   const carbsText = $("#resultCarbs").textContent;
   const fatText = $("#resultFat").textContent;
-  const fallback = pendingFoodEstimate || { calories: 520, protein: 36, carbs: 58, fat: 14 };
   state.favorites.unshift({
     name,
-    calories: Number.parseInt(caloriesText, 10) || fallback.calories,
-    protein: Number.parseInt(proteinText, 10) || fallback.protein,
-    carbs: Number.parseInt(carbsText, 10) || fallback.carbs,
-    fat: Number.parseInt(fatText, 10) || fallback.fat
+    calories: Number.parseFloat(caloriesText) || pendingFoodEstimate.calories,
+    protein: Number.parseFloat(proteinText) || pendingFoodEstimate.protein,
+    carbs: Number.parseFloat(carbsText) || pendingFoodEstimate.carbs,
+    fat: Number.parseFloat(fatText) || pendingFoodEstimate.fat,
+    recordable: true
   });
   state.favorites = state.favorites.slice(0, 8);
   saveState();
@@ -876,6 +1008,10 @@ function saveFavorite() {
 function useFavorite(index) {
   const item = state.favorites[index];
   if (!item) return;
+  if (item.recordable !== true) {
+    blockFoodEstimate(t("needs_review"));
+    return;
+  }
   $("#foodName").value = item.name;
   $("#foodGrams").value = "";
   $("#foodResultTitle").textContent = item.name;
@@ -1293,6 +1429,7 @@ function saveSyncSettings() {
   state.sync.key = $("#syncKeyInput").value.trim();
   state.sync.deviceName = $("#deviceNameInput").value.trim() || navigator.userAgent.slice(0, 42);
   state.ai.endpoint = $("#aiEndpointInput").value.trim().replace(/\/+$/, "");
+  state.ai.healthy = false;
   state.sync.lastStatus = state.sync.endpoint && state.sync.key ? "ready" : "";
   saveState();
   renderSync();
@@ -1558,6 +1695,7 @@ function bindEvents() {
       state.activeMealType = chip.dataset.mealType;
       saveState();
       renderMealType();
+      clearFoodEstimateNumbers();
     });
   });
 
@@ -1572,6 +1710,7 @@ function bindEvents() {
   $("#backPhoto").addEventListener("change", (event) => previewFile(event.target, "#backPreview"));
 
   $("#estimateFoodButton").addEventListener("click", estimateFood);
+  $("#calculateLabelButton").addEventListener("click", calculateManualLabel);
 
   $("#saveFavoriteButton").addEventListener("click", saveFavorite);
   $("#addFoodToTodayButton").addEventListener("click", addPendingFoodToToday);
@@ -1584,6 +1723,11 @@ function bindEvents() {
   });
 
   $("#foodHistoryList").addEventListener("click", (event) => {
+    const reviewButton = event.target.closest("[data-review-food-log]");
+    if (reviewButton) {
+      refillFoodLog(reviewButton.dataset.reviewFoodLog);
+      return;
+    }
     const button = event.target.closest("[data-delete-food-log]");
     if (!button) return;
     state.foodLogs = state.foodLogs.filter((item) => item.id !== button.dataset.deleteFoodLog);
@@ -1660,6 +1804,11 @@ function bindEvents() {
   });
 
   $("#saveSyncButton").addEventListener("click", saveSyncSettings);
+  $("#testAiButton").addEventListener("click", () => {
+    saveSyncSettings();
+    checkAiHealth();
+  });
+  $("#checkUpdateButton").addEventListener("click", checkForAppUpdate);
   $("#pushSyncButton").addEventListener("click", pushSync);
   $("#pullSyncButton").addEventListener("click", pullSync);
   $("#exportDataButton").addEventListener("click", exportData);
@@ -1667,13 +1816,58 @@ function bindEvents() {
   $("#importDataInput").addEventListener("change", (event) => importData(event.target.files?.[0]));
 }
 
-if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
+async function checkForAppUpdate() {
+  const button = $("#checkUpdateButton");
+  if (button) button.textContent = t("update_checking");
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") {
+    if (button) flashButton("#checkUpdateButton", `v${APP_VERSION}`);
+    return;
+  }
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) {
+      await registerServiceWorker();
+      return;
+    }
+    await registration.update();
+    if (registration.waiting) {
+      if (button) button.textContent = t("update_ready");
+      registration.waiting.postMessage({ type: "SKIP_WAITING" });
+    } else if (button) {
+      flashButton("#checkUpdateButton", t("up_to_date"));
+    }
+  } catch {
+    if (button) flashButton("#checkUpdateButton", `v${APP_VERSION}`);
+  }
+}
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+  const registration = await navigator.serviceWorker.register(`service-worker.js?v=${APP_VERSION}`, {
+    updateViaCache: "none"
   });
+  const activateWaiting = () => registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+  registration.addEventListener("updatefound", () => {
+    const installing = registration.installing;
+    installing?.addEventListener("statechange", () => {
+      if (installing.state === "installed" && navigator.serviceWorker.controller) activateWaiting();
+    });
+  });
+  activateWaiting();
+  await registration.update();
+}
+
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (updateReloading) return;
+    updateReloading = true;
+    window.location.reload();
+  });
+  window.addEventListener("load", () => registerServiceWorker().catch(() => {}));
 }
 
 recalculateFoodTotals();
 saveState({ touch: false });
 bindEvents();
 setLanguage(state.lang);
+checkAiHealth({ feedback: false });

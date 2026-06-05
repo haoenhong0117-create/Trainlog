@@ -41,6 +41,12 @@
     </style>
   </head>
   <body>
+    <section>
+      <h1>TrainLog v10 准确营养分析</h1>
+      <p>v10 不再在 AI 未连接或读取失败时生成粗略营养数字。包装食品可使用 App 内的“手动营养表计算”作为可靠后备。</p>
+      <p>真实 AI 需要在 Cloudflare Worker 中配置 <code>GEMINI_API_KEY</code> 与 <code>TRAINLOG_AI_KEY</code>，然后在 App 的复盘页填写 Worker 地址和同一个密钥，并点击“检查 AI 连接”。</p>
+      <p>旧版“本地粗略估算”记录会保留为待复核历史，但不会计入今日热量和蛋白质。</p>
+    </section>
     <h1>TrainLog 使用说明</h1>
 
     <section>

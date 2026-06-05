@@ -1,11 +1,11 @@
-const CACHE_NAME = "trainlog-v9";
+const CACHE_NAME = "trainlog-v10";
 const ASSETS = [
   "./",
   "./index.html",
   "./使用说明.html",
-  "./styles.css?v=9",
-  "./app.js?v=9",
-  "./service-worker.js",
+  "./styles.css?v=10",
+  "./app.js?v=10",
+  "./service-worker.js?v=10",
   "./manifest.webmanifest",
   "./icon.svg",
   "./.nojekyll",
@@ -14,16 +14,18 @@ const ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
-  self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
