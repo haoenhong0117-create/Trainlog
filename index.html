@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="stylesheet" href="styles.css?v=7" />
   </head>
   <body>
     <div class="app-shell">
@@ -109,6 +109,18 @@
               <strong id="mealModeTitle">饭菜肉模式</strong>
               <p id="mealModeCopy">适合饭、菜、肉、外食便当。上传餐食照片，补充克数会更准。</p>
             </div>
+            <div class="camera-action-row" id="cameraActionRow">
+              <button class="secondary-button" id="takeFoodPhotoButton" type="button">
+                <span class="camera-symbol" aria-hidden="true"></span>
+                <span id="takeFoodPhotoLabel">直接拍餐食</span>
+              </button>
+              <button class="secondary-button" id="takeLabelPhotoButton" type="button">
+                <span class="camera-symbol" aria-hidden="true"></span>
+                <span data-i18n="take_label_photo">拍营养表</span>
+              </button>
+              <input class="camera-input" id="foodCameraInput" type="file" accept="image/*" capture="environment" />
+              <input class="camera-input" id="labelCameraInput" type="file" accept="image/*" capture="environment" />
+            </div>
             <label class="upload-zone" id="foodUploadZone" for="foodPhoto">
               <input id="foodPhoto" type="file" accept="image/*" />
               <span class="upload-icon"></span>
@@ -157,6 +169,10 @@
               <div><span data-i18n="carbs">碳水</span><strong id="resultCarbs">--</strong></div>
               <div><span data-i18n="fat">脂肪</span><strong id="resultFat">--</strong></div>
             </div>
+            <div class="button-row">
+              <button class="primary-button" id="addFoodToTodayButton" type="button" data-i18n="add_to_today">加入今日</button>
+              <button class="secondary-button" id="clearTodayFoodButton" type="button" data-i18n="clear_today_food">清空今日饮食</button>
+            </div>
             <p class="muted" id="foodCoachNote" data-i18n="food_empty_note">拍照或输入后会生成热量、宏量营养和准确度建议。</p>
           </section>
 
@@ -182,17 +198,17 @@
           <section class="tool-panel">
             <div class="body-upload-grid">
               <label class="body-upload" for="frontPhoto">
-                <input id="frontPhoto" type="file" accept="image/*" />
+                <input id="frontPhoto" type="file" accept="image/*" capture="environment" />
                 <span data-i18n="front">正面</span>
                 <img id="frontPreview" alt="" hidden />
               </label>
               <label class="body-upload" for="sidePhoto">
-                <input id="sidePhoto" type="file" accept="image/*" />
+                <input id="sidePhoto" type="file" accept="image/*" capture="environment" />
                 <span data-i18n="side">侧面</span>
                 <img id="sidePreview" alt="" hidden />
               </label>
               <label class="body-upload" for="backPhoto">
-                <input id="backPhoto" type="file" accept="image/*" />
+                <input id="backPhoto" type="file" accept="image/*" capture="environment" />
                 <span data-i18n="back">背面</span>
                 <img id="backPreview" alt="" hidden />
               </label>
@@ -422,6 +438,6 @@
       </nav>
     </div>
 
-    <script src="app.js?v=6" defer></script>
+    <script src="app.js?v=7" defer></script>
   </body>
 </html>

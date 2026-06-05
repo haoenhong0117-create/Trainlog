@@ -36,8 +36,15 @@ const translations = {
     grams_placeholder: "可选",
     notes: "补充信息",
     food_notes_placeholder: "例如：少油，半碗饭，鸡胸大概一掌半",
+    take_label_photo: "拍营养表",
     estimate: "AI 估算",
     save_favorite: "收藏",
+    add_to_today: "加入今日",
+    clear_today_food: "清空今日饮食",
+    added_to_today: "已加入今日",
+    today_food_cleared: "今日饮食已清空",
+    estimate_first: "请先完成一次估算",
+    add_favorite_today: "加入今日",
     result_eyebrow: "估算结果",
     awaiting_scan: "等待扫描",
     calories_short: "热量",
@@ -172,8 +179,15 @@ const translations = {
     grams_placeholder: "Optional",
     notes: "Notes",
     food_notes_placeholder: "Example: low oil, half bowl of rice, chicken about 1.5 palms",
+    take_label_photo: "Take label photo",
     estimate: "AI estimate",
     save_favorite: "Save",
+    add_to_today: "Add to today",
+    clear_today_food: "Clear today's food",
+    added_to_today: "Added to today",
+    today_food_cleared: "Today's food cleared",
+    estimate_first: "Estimate a food first",
+    add_favorite_today: "Add to today",
     result_eyebrow: "Estimate",
     awaiting_scan: "Waiting",
     calories_short: "Cal",
@@ -287,6 +301,8 @@ const defaultState = {
   activeMealType: "meal",
   activePlanDay: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date().getDay()],
   favorites: [],
+  foodLogs: [],
+  foodLogVersion: 1,
   customTraining: {},
   quests: [
     { id: "protein", titleZh: "蛋白质达到 135g", titleEn: "Reach 135g protein", detailZh: "从第一餐开始记录", detailEn: "Start with your first meal", xp: 40, done: false },
@@ -312,6 +328,7 @@ const defaultState = {
 };
 
 let state = loadState();
+let pendingFoodEstimate = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -331,8 +348,15 @@ function mergeState(base, incoming) {
   merged.sync = { ...base.sync, ...(incoming.sync || {}) };
   merged.quests = Array.isArray(incoming.quests) ? incoming.quests : base.quests;
   merged.favorites = Array.isArray(incoming.favorites) ? incoming.favorites : base.favorites;
+  merged.foodLogs = Array.isArray(incoming.foodLogs) ? incoming.foodLogs : base.foodLogs;
   merged.completedExercises = incoming.completedExercises || base.completedExercises;
   merged.customTraining = incoming.customTraining || base.customTraining;
+  if (incoming.foodLogVersion !== 1) {
+    merged.foodLogs = [];
+    merged.calories = 0;
+    merged.protein = 0;
+    merged.foodLogVersion = 1;
+  }
   return merged;
 }
 
@@ -409,11 +433,10 @@ function renderFavorites() {
   $("#favoriteList").innerHTML = state.favorites
     .map(
       (item, index) => `
-      <button class="favorite-item" data-favorite="${index}" type="button">
-        <span class="check-dot"></span>
+      <article class="favorite-item">
         <span><strong>${item.name}</strong><small>${item.calories} kcal · P ${item.protein}g · C ${item.carbs}g · F ${item.fat}g</small></span>
-        <span class="quest-xp">${t("use")}</span>
-      </button>
+        <button class="favorite-use-button" data-favorite="${index}" type="button">${t("add_favorite_today")}</button>
+      </article>
     `
     )
     .join("");
@@ -435,6 +458,16 @@ function renderMealType() {
   $("#foodNotes").placeholder = config.notesPlaceholder;
   $("#foodUploadZone").hidden = !config.showFoodUpload;
   $("#labelUploadZone").hidden = !config.showLabelUpload;
+  $("#cameraActionRow").hidden = !config.showFoodUpload;
+  $("#takeLabelPhotoButton").hidden = !config.showLabelUpload;
+  $("#takeFoodPhotoLabel").textContent =
+    state.activeMealType === "package"
+      ? state.lang === "zh"
+        ? "拍包装照片"
+        : "Take package photo"
+      : state.lang === "zh"
+        ? "直接拍餐食"
+        : "Take meal photo";
   $("#mealModeCard").dataset.mode = state.activeMealType;
 }
 
@@ -542,13 +575,67 @@ function estimateFood() {
   $("#confidencePill").textContent = `${t("confidence")} ${confidence}%`;
   $("#foodCoachNote").textContent =
     state.lang === "zh"
-      ? `${name} 已按${config.title}加入今日饮食。${grams ? "已使用你提供的克数。" : `未填克数，暂按约 ${effectiveGrams}g 估算。`}`
-      : `${name} was added with ${config.title}. ${grams ? "Your grams were used." : `No grams entered, estimated at about ${effectiveGrams}g.`}`;
+      ? `${name} 已完成估算，确认后再按“加入今日”。${grams ? "已使用你提供的克数。" : `未填克数，暂按约 ${effectiveGrams}g 估算。`}`
+      : `${name} is estimated. Confirm with “Add to today.” ${grams ? "Your grams were used." : `No grams entered, estimated at about ${effectiveGrams}g.`}`;
 
-  state.calories += calories;
-  state.protein += protein;
+  pendingFoodEstimate = {
+    name,
+    calories,
+    protein,
+    carbs,
+    fat,
+    confidence,
+    mode: state.activeMealType
+  };
+}
+
+function todayKey() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function recalculateFoodTotals() {
+  const today = todayKey();
+  const todayLogs = state.foodLogs.filter((item) => item.date === today);
+  state.calories = todayLogs.reduce((total, item) => total + Number(item.calories || 0), 0);
+  state.protein = todayLogs.reduce((total, item) => total + Number(item.protein || 0), 0);
+}
+
+function addFoodLog(item) {
+  state.foodLogs.push({
+    ...item,
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    date: todayKey()
+  });
+  recalculateFoodTotals();
   saveState();
   renderStats();
+}
+
+function addPendingFoodToToday() {
+  if (!pendingFoodEstimate) {
+    $("#foodCoachNote").textContent = t("estimate_first");
+    flashButton("#addFoodToTodayButton", t("estimate_first"));
+    return;
+  }
+  addFoodLog(pendingFoodEstimate);
+  pendingFoodEstimate = null;
+  $("#foodCoachNote").textContent =
+    state.lang === "zh" ? "已记录一次，不会因为重复估算而累加。" : "Logged once. Re-estimating will not add duplicates.";
+  flashButton("#addFoodToTodayButton", t("added_to_today"));
+}
+
+function clearTodayFood() {
+  const today = todayKey();
+  state.foodLogs = state.foodLogs.filter((item) => item.date !== today);
+  recalculateFoodTotals();
+  saveState();
+  renderStats();
+  $("#foodCoachNote").textContent = t("today_food_cleared");
+  flashButton("#clearTodayFoodButton", t("today_food_cleared"));
 }
 
 function saveFavorite() {
@@ -557,7 +644,7 @@ function saveFavorite() {
   const proteinText = $("#resultProtein").textContent;
   const carbsText = $("#resultCarbs").textContent;
   const fatText = $("#resultFat").textContent;
-  const fallback = { calories: 520, protein: 36, carbs: 58, fat: 14 };
+  const fallback = pendingFoodEstimate || { calories: 520, protein: 36, carbs: 58, fat: 14 };
   state.favorites.unshift({
     name,
     calories: Number.parseInt(caloriesText, 10) || fallback.calories,
@@ -583,11 +670,8 @@ function useFavorite(index) {
   $("#resultFat").textContent = `${item.fat}g`;
   $("#confidencePill").textContent = `${t("confidence")} 91%`;
   $("#foodCoachNote").textContent =
-    state.lang === "zh" ? "已复用收藏食物，今日数据同步更新。" : "Saved food reused and today's data updated.";
-  state.calories += item.calories;
-  state.protein += item.protein;
-  saveState();
-  renderStats();
+    state.lang === "zh" ? "已将这份常用食物加入今日一次。" : "Saved food added to today once.";
+  addFoodLog(item);
 }
 
 function renderBodyAnalysis() {
@@ -1145,6 +1229,7 @@ function previewFile(input, imageSelector) {
   image.src = URL.createObjectURL(file);
   image.hidden = false;
   input.closest("label")?.classList.add("has-image");
+  image.closest(".upload-zone")?.classList.add("has-image");
 }
 
 function bindEvents() {
@@ -1175,8 +1260,8 @@ function bindEvents() {
 
   $("#resetDayButton").addEventListener("click", () => {
     state.quests = structuredClone(defaultState.quests);
-    state.calories = defaultState.calories;
-    state.protein = defaultState.protein;
+    state.foodLogs = state.foodLogs.filter((item) => item.date !== todayKey());
+    recalculateFoodTotals();
     state.completedExercises = {};
     saveState();
     renderAll();
@@ -1192,6 +1277,10 @@ function bindEvents() {
 
   $("#foodPhoto").addEventListener("change", (event) => previewFile(event.target, "#foodPreview"));
   $("#labelPhoto").addEventListener("change", (event) => previewFile(event.target, "#labelPreview"));
+  $("#takeFoodPhotoButton").addEventListener("click", () => $("#foodCameraInput").click());
+  $("#takeLabelPhotoButton").addEventListener("click", () => $("#labelCameraInput").click());
+  $("#foodCameraInput").addEventListener("change", (event) => previewFile(event.target, "#foodPreview"));
+  $("#labelCameraInput").addEventListener("change", (event) => previewFile(event.target, "#labelPreview"));
   $("#frontPhoto").addEventListener("change", (event) => previewFile(event.target, "#frontPreview"));
   $("#sidePhoto").addEventListener("change", (event) => previewFile(event.target, "#sidePreview"));
   $("#backPhoto").addEventListener("change", (event) => previewFile(event.target, "#backPreview"));
@@ -1202,6 +1291,8 @@ function bindEvents() {
   });
 
   $("#saveFavoriteButton").addEventListener("click", saveFavorite);
+  $("#addFoodToTodayButton").addEventListener("click", addPendingFoodToToday);
+  $("#clearTodayFoodButton").addEventListener("click", clearTodayFood);
 
   $("#favoriteList").addEventListener("click", (event) => {
     const item = event.target.closest("[data-favorite]");
@@ -1280,5 +1371,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   });
 }
 
+recalculateFoodTotals();
+saveState({ touch: false });
 bindEvents();
 setLanguage(state.lang);

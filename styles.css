@@ -352,6 +352,23 @@ label span,
   background: rgba(255, 255, 255, 0.035);
 }
 
+.favorite-item {
+  min-height: 64px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  cursor: default;
+}
+
+.favorite-use-button {
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid rgba(118, 247, 160, 0.32);
+  border-radius: 6px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
 .check-dot {
   width: 24px;
   height: 24px;
@@ -486,6 +503,61 @@ label span,
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+.camera-action-row {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.camera-action-row .secondary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.camera-input {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  left: -10000px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.camera-symbol {
+  width: 18px;
+  height: 13px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  position: relative;
+}
+
+.camera-symbol::before {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  left: 4px;
+  top: 1px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.camera-symbol::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 3px;
+  left: 3px;
+  top: -5px;
+  border: 2px solid currentColor;
+  border-bottom: 0;
+  border-radius: 2px 2px 0 0;
 }
 
 .upload-zone {
