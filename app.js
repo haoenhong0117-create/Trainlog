@@ -648,10 +648,47 @@ function hasLabelPhotos() {
   return labelImages.length > 0;
 }
 
+function parseAmountCount(amount) {
+  const normalized = amount.toLowerCase().replace(",", ".");
+  if (/(半|half)/i.test(normalized)) return 0.5;
+  const match = normalized.match(/(\d+(?:\.\d+)?)/);
+  return match ? Number(match[1]) : 0;
+}
+
+function breadSliceRoughEstimate(amount, name) {
+  const sliceCount = parseAmountCount(amount);
+  const looksLikeSlices = /(片|slice|slices)/i.test(amount);
+  if (!sliceCount || !looksLikeSlices) return null;
+  return {
+    name: name || (state.lang === "zh" ? "面包片（粗略）" : "Bread slices (rough)"),
+    calories: Math.round(sliceCount * 100.5),
+    protein: Number((sliceCount * 3.7).toFixed(1)),
+    carbs: Number((sliceCount * 17.95).toFixed(1)),
+    fat: Number((sliceCount * 1.25).toFixed(1)),
+    confidence: 34,
+    mode: state.activeMealType,
+    source: "local_rough_estimate",
+    servingSummary: amount,
+    reasoning:
+      state.lang === "zh"
+        ? `粗略模式无法读取照片，暂按普通全麦面包每片约 101 kcal 估算。`
+        : "Rough mode cannot read photos, so this temporarily uses about 101 kcal per wholemeal bread slice.",
+    warnings: [
+      state.lang === "zh"
+        ? "这不是营养表识别结果；连接真实 AI 后才能读取包装上的每份数据。"
+        : "This is not a nutrition-label reading. Connect real AI to read the package values."
+    ]
+  };
+}
+
 function localFoodEstimate() {
   const grams = Number($("#foodGrams").value || 0);
   const amount = $("#foodAmount").value.trim();
   const name = $("#foodName").value.trim() || (state.lang === "zh" ? "未命名食物" : "Unnamed food");
+  if (!grams) {
+    const sliceEstimate = breadSliceRoughEstimate(amount, $("#foodName").value.trim());
+    if (sliceEstimate) return sliceEstimate;
+  }
   const config = mealModeConfig()[state.activeMealType] || mealModeConfig().meal;
   const effectiveGrams = grams || config.defaultGrams;
   const hasFoodPhoto = hasFoodPhotos();
