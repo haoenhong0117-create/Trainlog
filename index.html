@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="styles.css?v=8" />
   </head>
   <body>
     <div class="app-shell">
@@ -97,6 +97,7 @@
               <p class="eyebrow" data-i18n="food_eyebrow">饮食记录</p>
               <h2 data-i18n="food_title">拍照，估算，复用</h2>
             </div>
+            <span class="confidence-pill" id="foodAiStatusPill">粗略模式</span>
           </div>
 
           <section class="tool-panel">
@@ -122,23 +123,27 @@
               <input class="camera-input" id="labelCameraInput" type="file" accept="image/*" capture="environment" />
             </div>
             <label class="upload-zone" id="foodUploadZone" for="foodPhoto">
-              <input id="foodPhoto" type="file" accept="image/*" />
+              <input id="foodPhoto" type="file" accept="image/*" multiple />
               <span class="upload-icon"></span>
               <strong id="foodUploadTitle" data-i18n="upload_food">上传食物照片</strong>
               <small id="foodUploadHint" data-i18n="upload_food_hint">包装食品可再拍营养表，提高准确度</small>
-              <img id="foodPreview" alt="" hidden />
             </label>
+            <div class="upload-preview-grid" id="foodPreviewGrid"></div>
             <label class="upload-zone compact" id="labelUploadZone" for="labelPhoto">
-              <input id="labelPhoto" type="file" accept="image/*" />
+              <input id="labelPhoto" type="file" accept="image/*" multiple />
               <span class="upload-icon label"></span>
               <strong id="labelUploadTitle" data-i18n="upload_label">上传营养表或配料表</strong>
               <small id="labelUploadHint" data-i18n="optional">可选</small>
-              <img id="labelPreview" alt="" hidden />
             </label>
+            <div class="upload-preview-grid" id="labelPreviewGrid"></div>
             <div class="field-grid">
               <label>
                 <span data-i18n="food_name">食物名称</span>
                 <input id="foodName" type="text" data-i18n-placeholder="food_name_placeholder" placeholder="例如：鸡胸饭 + 青菜" />
+              </label>
+              <label>
+                <span data-i18n="amount_eaten">实际吃了多少</span>
+                <input id="foodAmount" type="text" data-i18n-placeholder="amount_eaten_placeholder" placeholder="例如：2 片 / 半包 / 1 碗" />
               </label>
               <label>
                 <span data-i18n="grams">估算克数</span>
@@ -153,6 +158,7 @@
               <button class="primary-button" id="estimateFoodButton" type="button" data-i18n="estimate">AI 估算</button>
               <button class="secondary-button" id="saveFavoriteButton" type="button" data-i18n="save_favorite">收藏</button>
             </div>
+            <p class="privacy-note" data-i18n="ai_photo_privacy">启用真实 AI 分析后，所选食物照片会发送到你配置的 AI 服务。</p>
           </section>
 
           <section class="section-block">
@@ -184,6 +190,21 @@
               </div>
             </div>
             <div class="favorite-list" id="favoriteList"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow" data-i18n="history_eyebrow">饮食历史</p>
+                <h3 data-i18n="history_title">回看每天吃了什么</h3>
+              </div>
+              <button class="tiny-button" id="showAllHistoryButton" type="button" data-i18n="show_all">全部</button>
+            </div>
+            <label class="history-date-filter">
+              <span data-i18n="filter_date">筛选日期</span>
+              <input id="historyDateInput" type="date" />
+            </label>
+            <div class="food-history-list" id="foodHistoryList"></div>
           </section>
         </section>
 
@@ -399,6 +420,10 @@
               <span data-i18n="device_name">设备名称</span>
               <input id="deviceNameInput" type="text" placeholder="Haoen iPhone" />
             </label>
+            <label>
+              <span data-i18n="ai_endpoint">AI 分析端点</span>
+              <input id="aiEndpointInput" type="url" inputmode="url" placeholder="https://your-worker.example.workers.dev" />
+            </label>
             <div class="button-row wrap">
               <button class="secondary-button" id="saveSyncButton" type="button" data-i18n="save_sync">保存同步设置</button>
               <button class="primary-button" id="pushSyncButton" type="button" data-i18n="push_sync">上传到云端</button>
@@ -438,6 +463,6 @@
       </nav>
     </div>
 
-    <script src="app.js?v=7" defer></script>
+    <script src="app.js?v=8" defer></script>
   </body>
 </html>

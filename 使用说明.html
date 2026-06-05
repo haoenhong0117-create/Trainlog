@@ -68,6 +68,24 @@
     </section>
 
     <section>
+      <h2>启用真实 AI 营养分析</h2>
+      <p>TrainLog v8 的 Worker 已加入多图营养分析端点。它默认优先使用 <code>gemini-3-pro-preview</code>，不可用时回退至 <code>gemini-2.5-pro</code>。包装食品会优先读取营养表并按“每份、每片、每 100g、实际吃了多少”计算；普通饭菜仍属于视觉估算。</p>
+      <ol>
+        <li>在 Google AI Studio 创建 Gemini API Key。</li>
+        <li>部署最新版 <code>cloudflare-sync-worker.js</code>。</li>
+        <li>在 Cloudflare Worker 的 Settings → Variables and Secrets 中添加 Secret：<code>GEMINI_API_KEY</code>。</li>
+        <li>再添加 Secret：<code>TRAINLOG_AI_KEY</code>，值设为一串只供自己使用的随机密钥。</li>
+        <li>在 TrainLog“复盘”页面，将 Worker 地址填入“AI 分析端点”，并将同一串 <code>TRAINLOG_AI_KEY</code> 填入“同步密钥”，然后保存。</li>
+      </ol>
+      <p class="muted">不要把 Gemini API Key 写进 GitHub 文件。真实 AI 分析会把你选择的食物照片发送给 Gemini；没有配置端点时，App 会明确显示为低置信度本地粗略估算。</p>
+    </section>
+
+    <section>
+      <h2>多图与饮食历史</h2>
+      <p>相册上传现在可一次选择多张照片；直接拍照按钮可以连续拍摄并累积。建议包装食品同时提供包装正面、营养表和食用数量。每次按“加入今日”后，会出现在饮食页面底部的历史记录中，并可按日期筛选或删除误记项目。</p>
+    </section>
+
+    <section>
       <h2>备份和迁移</h2>
       <p>如果暂时不部署云同步，也可以在“复盘”页面使用“导出备份”和“导入备份”。这不是自动同步，但可以先让你把手机数据迁移到电脑，或把电脑数据迁移到手机。</p>
     </section>

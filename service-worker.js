@@ -1,10 +1,10 @@
-const CACHE_NAME = "trainlog-v7";
+const CACHE_NAME = "trainlog-v8";
 const ASSETS = [
   "./",
   "./index.html",
   "./使用说明.html",
-  "./styles.css?v=7",
-  "./app.js?v=7",
+  "./styles.css?v=8",
+  "./app.js?v=8",
   "./service-worker.js",
   "./manifest.webmanifest",
   "./icon.svg",

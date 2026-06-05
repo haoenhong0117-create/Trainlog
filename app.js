@@ -32,6 +32,8 @@ const translations = {
     hidden_in_manual: "手动输入模式不需要照片",
     food_name: "食物名称",
     food_name_placeholder: "例如：鸡胸饭 + 青菜",
+    amount_eaten: "实际吃了多少",
+    amount_eaten_placeholder: "例如：2 片 / 半包 / 1 碗",
     grams: "估算克数",
     grams_placeholder: "可选",
     notes: "补充信息",
@@ -45,6 +47,24 @@ const translations = {
     today_food_cleared: "今日饮食已清空",
     estimate_first: "请先完成一次估算",
     add_favorite_today: "加入今日",
+    history_eyebrow: "饮食历史",
+    history_title: "回看每天吃了什么",
+    show_all: "全部",
+    filter_date: "筛选日期",
+    no_food_history: "还没有饮食记录。",
+    delete_log: "删除",
+    ai_endpoint: "AI 分析端点",
+    ai_not_configured: "尚未配置真实 AI，当前结果仅为低置信度粗略估算。",
+    ai_analyzing: "正在分析多张照片...",
+    ai_failed: "AI 分析失败，请检查端点、密钥或网络。",
+    ai_fallback_rough: "已改用低置信度本地粗略估算。",
+    ai_exact_label: "营养表计算",
+    ai_visual_estimate: "视觉估算",
+    local_rough_estimate: "本地粗略估算",
+    saved_food: "常用食物",
+    ai_photo_privacy: "启用真实 AI 分析后，所选食物照片会发送到你配置的 AI 服务。",
+    real_ai_ready: "真实 AI 已连接",
+    rough_mode: "粗略模式",
     result_eyebrow: "估算结果",
     awaiting_scan: "等待扫描",
     calories_short: "热量",
@@ -175,6 +195,8 @@ const translations = {
     hidden_in_manual: "Manual mode does not need photos",
     food_name: "Food name",
     food_name_placeholder: "Example: chicken rice + greens",
+    amount_eaten: "Amount eaten",
+    amount_eaten_placeholder: "Example: 2 slices / half pack / 1 bowl",
     grams: "Estimated grams",
     grams_placeholder: "Optional",
     notes: "Notes",
@@ -188,6 +210,24 @@ const translations = {
     today_food_cleared: "Today's food cleared",
     estimate_first: "Estimate a food first",
     add_favorite_today: "Add to today",
+    history_eyebrow: "Food history",
+    history_title: "Review what you ate",
+    show_all: "All",
+    filter_date: "Filter date",
+    no_food_history: "No food history yet.",
+    delete_log: "Delete",
+    ai_endpoint: "AI analysis endpoint",
+    ai_not_configured: "Real AI is not configured. This is only a low-confidence rough estimate.",
+    ai_analyzing: "Analyzing multiple photos...",
+    ai_failed: "AI analysis failed. Check endpoint, key, or network.",
+    ai_fallback_rough: "Fell back to a low-confidence local rough estimate.",
+    ai_exact_label: "Nutrition label calculation",
+    ai_visual_estimate: "Visual estimate",
+    local_rough_estimate: "Local rough estimate",
+    saved_food: "Saved food",
+    ai_photo_privacy: "With real AI enabled, selected food photos are sent to your configured AI service.",
+    real_ai_ready: "Real AI connected",
+    rough_mode: "Rough mode",
     result_eyebrow: "Estimate",
     awaiting_scan: "Waiting",
     calories_short: "Cal",
@@ -324,11 +364,16 @@ const defaultState = {
     lastSync: "",
     lastStatus: ""
   },
+  ai: {
+    endpoint: ""
+  },
   updatedAt: ""
 };
 
 let state = loadState();
 let pendingFoodEstimate = null;
+let foodImages = [];
+let labelImages = [];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -346,6 +391,7 @@ function mergeState(base, incoming) {
   const merged = { ...base, ...incoming };
   merged.profile = { ...base.profile, ...(incoming.profile || {}) };
   merged.sync = { ...base.sync, ...(incoming.sync || {}) };
+  merged.ai = { ...base.ai, ...(incoming.ai || {}) };
   merged.quests = Array.isArray(incoming.quests) ? incoming.quests : base.quests;
   merged.favorites = Array.isArray(incoming.favorites) ? incoming.favorites : base.favorites;
   merged.foodLogs = Array.isArray(incoming.foodLogs) ? incoming.foodLogs : base.foodLogs;
@@ -442,6 +488,51 @@ function renderFavorites() {
     .join("");
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function renderFoodHistory() {
+  const selectedDate = $("#historyDateInput")?.value || "";
+  const logs = state.foodLogs
+    .filter((item) => !selectedDate || item.date === selectedDate)
+    .slice()
+    .sort((a, b) => String(b.createdAt || b.id).localeCompare(String(a.createdAt || a.id)));
+
+  if (!logs.length) {
+    $("#foodHistoryList").innerHTML = `<p class="muted">${t("no_food_history")}</p>`;
+    return;
+  }
+
+  $("#foodHistoryList").innerHTML = logs
+    .map((item) => {
+      const source = t(item.source || "local_rough_estimate");
+      const time = item.createdAt
+        ? new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : "";
+      return `
+        <article class="food-history-item">
+          ${item.thumbnail ? `<img src="${item.thumbnail}" alt="" />` : `<div class="food-history-placeholder"></div>`}
+          <div>
+            <div class="food-history-heading">
+              <strong>${escapeHtml(item.name)}</strong>
+              <small>${escapeHtml(item.date)} ${escapeHtml(time)}</small>
+            </div>
+            <p>${item.calories} kcal · P ${item.protein}g · C ${item.carbs || 0}g · F ${item.fat || 0}g</p>
+            <small>${escapeHtml(source)}${item.servingSummary ? ` · ${escapeHtml(item.servingSummary)}` : ""}</small>
+          </div>
+          <button class="tiny-button danger" data-delete-food-log="${escapeHtml(item.id)}" type="button">${t("delete_log")}</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderMealType() {
   $$(".chip").forEach((chip) => {
     chip.classList.toggle("is-active", chip.dataset.mealType === state.activeMealType);
@@ -458,6 +549,8 @@ function renderMealType() {
   $("#foodNotes").placeholder = config.notesPlaceholder;
   $("#foodUploadZone").hidden = !config.showFoodUpload;
   $("#labelUploadZone").hidden = !config.showLabelUpload;
+  $("#foodPreviewGrid").hidden = !config.showFoodUpload;
+  $("#labelPreviewGrid").hidden = !config.showLabelUpload;
   $("#cameraActionRow").hidden = !config.showFoodUpload;
   $("#takeLabelPhotoButton").hidden = !config.showLabelUpload;
   $("#takeFoodPhotoLabel").textContent =
@@ -469,6 +562,13 @@ function renderMealType() {
         ? "直接拍餐食"
         : "Take meal photo";
   $("#mealModeCard").dataset.mode = state.activeMealType;
+}
+
+function renderFoodAiStatus() {
+  const pill = $("#foodAiStatusPill");
+  const ready = Boolean(aiEndpoint());
+  pill.textContent = ready ? t("real_ai_ready") : t("rough_mode");
+  pill.classList.toggle("is-online", ready);
 }
 
 function mealModeConfig() {
@@ -540,53 +640,125 @@ function mealModeConfig() {
   };
 }
 
-function hasPreview(selector) {
-  const image = $(selector);
-  return Boolean(image?.src) && image.hidden === false;
+function hasFoodPhotos() {
+  return foodImages.length > 0;
 }
 
-function estimateFood() {
+function hasLabelPhotos() {
+  return labelImages.length > 0;
+}
+
+function localFoodEstimate() {
   const grams = Number($("#foodGrams").value || 0);
+  const amount = $("#foodAmount").value.trim();
   const name = $("#foodName").value.trim() || (state.lang === "zh" ? "未命名食物" : "Unnamed food");
   const config = mealModeConfig()[state.activeMealType] || mealModeConfig().meal;
   const effectiveGrams = grams || config.defaultGrams;
-  const hasFoodPhoto = hasPreview("#foodPreview");
-  const hasLabel = hasPreview("#labelPreview");
+  const hasFoodPhoto = hasFoodPhotos();
+  const hasLabel = hasLabelPhotos();
   const hasNotes = Boolean($("#foodNotes").value.trim());
   const calories = Math.round(effectiveGrams * config.caloriesPerGram);
   const protein = Math.round(clamp(effectiveGrams * config.proteinRatio, 2, 75));
   const carbs = Math.round(clamp(effectiveGrams * config.carbsRatio, 0, 150));
   const fat = Math.round(clamp(effectiveGrams * config.fatRatio, 0, 45));
   const confidence = clamp(
-    config.baseConfidence +
+    28 +
       (grams ? 10 : 0) +
-      (hasFoodPhoto && config.showFoodUpload ? 8 : 0) +
-      (hasLabel && state.activeMealType === "package" ? 16 : 0) +
+      (hasFoodPhoto && config.showFoodUpload ? 3 : 0) +
+      (hasLabel && state.activeMealType === "package" ? 3 : 0) +
       (hasNotes ? 5 : 0),
-    45,
-    96
+    20,
+    49
   );
 
-  $("#foodResultTitle").textContent = name;
-  $("#resultCalories").textContent = `${calories} kcal`;
-  $("#resultProtein").textContent = `${protein}g`;
-  $("#resultCarbs").textContent = `${carbs}g`;
-  $("#resultFat").textContent = `${fat}g`;
-  $("#confidencePill").textContent = `${t("confidence")} ${confidence}%`;
-  $("#foodCoachNote").textContent =
-    state.lang === "zh"
-      ? `${name} 已完成估算，确认后再按“加入今日”。${grams ? "已使用你提供的克数。" : `未填克数，暂按约 ${effectiveGrams}g 估算。`}`
-      : `${name} is estimated. Confirm with “Add to today.” ${grams ? "Your grams were used." : `No grams entered, estimated at about ${effectiveGrams}g.`}`;
-
-  pendingFoodEstimate = {
+  return {
     name,
     calories,
     protein,
     carbs,
     fat,
     confidence,
-    mode: state.activeMealType
+    mode: state.activeMealType,
+    source: "local_rough_estimate",
+    servingSummary: amount || (grams ? `${grams}g` : `~${effectiveGrams}g`),
+    reasoning:
+      state.lang === "zh"
+        ? "未连接真实视觉 AI，仅按食物模式和克数进行粗略计算。"
+        : "Real vision AI is not connected; this uses only mode and grams.",
+    warnings: [t("ai_not_configured")]
   };
+}
+
+function renderFoodEstimate(result) {
+  $("#foodResultTitle").textContent = result.name;
+  $("#resultCalories").textContent = `${Math.round(result.calories)} kcal`;
+  $("#resultProtein").textContent = `${Number(result.protein).toFixed(1)}g`;
+  $("#resultCarbs").textContent = `${Number(result.carbs).toFixed(1)}g`;
+  $("#resultFat").textContent = `${Number(result.fat).toFixed(1)}g`;
+  $("#confidencePill").textContent = `${t("confidence")} ${Math.round(result.confidence)}%`;
+  const sourceLabel = t(result.source) || result.source;
+  const warningText = Array.isArray(result.warnings) && result.warnings.length ? ` ${result.warnings.join(" ")}` : "";
+  const calculationText = result.calculation ? ` ${result.calculation}.` : "";
+  $("#foodCoachNote").textContent = `${sourceLabel} · ${result.servingSummary || ""}.${calculationText} ${result.reasoning || ""}${warningText}`;
+  pendingFoodEstimate = {
+    ...result,
+    calories: Math.round(Number(result.calories) || 0),
+    protein: Number(Number(result.protein || 0).toFixed(1)),
+    carbs: Number(Number(result.carbs || 0).toFixed(1)),
+    fat: Number(Number(result.fat || 0).toFixed(1)),
+    confidence: Math.round(Number(result.confidence) || 0),
+    mode: state.activeMealType,
+    thumbnail: foodImages[0]?.thumbnail || labelImages[0]?.thumbnail || "",
+    notes: $("#foodNotes").value.trim()
+  };
+}
+
+function aiEndpoint() {
+  return (state.ai.endpoint || state.sync.endpoint || "").replace(/\/+$/, "");
+}
+
+async function estimateFood() {
+  const button = $("#estimateFoodButton");
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = t("ai_analyzing");
+  const endpoint = aiEndpoint();
+
+  try {
+    if (!endpoint) {
+      const rough = localFoodEstimate();
+      renderFoodEstimate(rough);
+      return;
+    }
+
+    const response = await fetch(`${endpoint}/analyze-food`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-TrainLog-Key": state.sync.key || ""
+      },
+      body: JSON.stringify({
+        mode: state.activeMealType,
+        language: state.lang,
+        name: $("#foodName").value.trim(),
+        amount: $("#foodAmount").value.trim(),
+        grams: Number($("#foodGrams").value || 0),
+        notes: $("#foodNotes").value.trim(),
+        foodImages: foodImages.map((item) => item.dataUrl),
+        labelImages: labelImages.map((item) => item.dataUrl)
+      })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    renderFoodEstimate(result);
+  } catch {
+    const rough = localFoodEstimate();
+    rough.warnings = [t("ai_failed"), t("ai_fallback_rough")];
+    renderFoodEstimate(rough);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
 }
 
 function todayKey() {
@@ -608,11 +780,13 @@ function addFoodLog(item) {
   state.foodLogs.push({
     ...item,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    date: todayKey()
+    date: todayKey(),
+    createdAt: new Date().toISOString()
   });
   recalculateFoodTotals();
   saveState();
   renderStats();
+  renderFoodHistory();
 }
 
 function addPendingFoodToToday() {
@@ -623,6 +797,9 @@ function addPendingFoodToToday() {
   }
   addFoodLog(pendingFoodEstimate);
   pendingFoodEstimate = null;
+  foodImages = [];
+  labelImages = [];
+  renderFoodImagePreviews();
   $("#foodCoachNote").textContent =
     state.lang === "zh" ? "已记录一次，不会因为重复估算而累加。" : "Logged once. Re-estimating will not add duplicates.";
   flashButton("#addFoodToTodayButton", t("added_to_today"));
@@ -634,6 +811,7 @@ function clearTodayFood() {
   recalculateFoodTotals();
   saveState();
   renderStats();
+  renderFoodHistory();
   $("#foodCoachNote").textContent = t("today_food_cleared");
   flashButton("#clearTodayFoodButton", t("today_food_cleared"));
 }
@@ -671,7 +849,7 @@ function useFavorite(index) {
   $("#confidencePill").textContent = `${t("confidence")} 91%`;
   $("#foodCoachNote").textContent =
     state.lang === "zh" ? "已将这份常用食物加入今日一次。" : "Saved food added to today once.";
-  addFoodLog(item);
+  addFoodLog({ ...item, source: "saved_food", servingSummary: state.lang === "zh" ? "常用食物" : "Saved food" });
 }
 
 function renderBodyAnalysis() {
@@ -1054,6 +1232,7 @@ function renderSync() {
   $("#syncEndpointInput").value = state.sync.endpoint || "";
   $("#syncKeyInput").value = state.sync.key || "";
   $("#deviceNameInput").value = state.sync.deviceName || "";
+  $("#aiEndpointInput").value = state.ai.endpoint || state.sync.endpoint || "";
   const hasCloud = Boolean(state.sync.endpoint && state.sync.key);
   const pill = $("#syncStatusPill");
   pill.textContent = hasCloud ? t("cloud_ready") : t("local_only");
@@ -1076,9 +1255,11 @@ function saveSyncSettings() {
   state.sync.endpoint = $("#syncEndpointInput").value.trim().replace(/\/+$/, "");
   state.sync.key = $("#syncKeyInput").value.trim();
   state.sync.deviceName = $("#deviceNameInput").value.trim() || navigator.userAgent.slice(0, 42);
+  state.ai.endpoint = $("#aiEndpointInput").value.trim().replace(/\/+$/, "");
   state.sync.lastStatus = state.sync.endpoint && state.sync.key ? "ready" : "";
   saveState();
   renderSync();
+  renderFoodAiStatus();
   flashButton("#saveSyncButton", t("sync_saved"));
 }
 
@@ -1204,8 +1385,10 @@ function importData(file) {
 function renderAll() {
   renderStats();
   renderMealType();
+  renderFoodAiStatus();
   renderQuests();
   renderFavorites();
+  renderFoodHistory();
   renderBodyAnalysis();
   renderTraining();
   renderWeeklyChart();
@@ -1220,6 +1403,72 @@ function flashButton(selector, label) {
   setTimeout(() => {
     button.textContent = original;
   }, 1100);
+}
+
+function resizeDataUrl(dataUrl, maxDimension, quality = 0.82) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    image.onerror = () => resolve(dataUrl);
+    image.src = dataUrl;
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleFoodImageFiles(input, kind) {
+  const target = kind === "label" ? labelImages : foodImages;
+  const available = Math.max(0, 8 - target.length);
+  const files = Array.from(input.files || []).slice(0, available);
+  for (const file of files) {
+    const original = await readFileAsDataUrl(file);
+    const dataUrl = await resizeDataUrl(original, 1800, 0.84);
+    const thumbnailCandidate = await resizeDataUrl(dataUrl, 320, 0.72);
+    const thumbnail = thumbnailCandidate.length < 250000 ? thumbnailCandidate : "";
+    target.push({ dataUrl, thumbnail, name: file.name });
+  }
+  input.value = "";
+  renderFoodImagePreviews();
+}
+
+function renderFoodImagePreviews() {
+  const renderGrid = (selector, images, kind) => {
+    $(selector).innerHTML = images
+      .map(
+        (item, index) => `
+          <figure class="upload-preview-item">
+            <img src="${item.thumbnail || item.dataUrl}" alt="" />
+            <button type="button" data-remove-food-image="${kind}:${index}" aria-label="${t("delete")}">×</button>
+          </figure>
+        `
+      )
+      .join("");
+  };
+  renderGrid("#foodPreviewGrid", foodImages, "food");
+  renderGrid("#labelPreviewGrid", labelImages, "label");
+}
+
+function removeFoodImage(event) {
+  const button = event.target.closest("[data-remove-food-image]");
+  if (!button) return;
+  const [kind, rawIndex] = button.dataset.removeFoodImage.split(":");
+  const target = kind === "label" ? labelImages : foodImages;
+  target.splice(Number(rawIndex), 1);
+  renderFoodImagePreviews();
 }
 
 function previewFile(input, imageSelector) {
@@ -1275,20 +1524,17 @@ function bindEvents() {
     });
   });
 
-  $("#foodPhoto").addEventListener("change", (event) => previewFile(event.target, "#foodPreview"));
-  $("#labelPhoto").addEventListener("change", (event) => previewFile(event.target, "#labelPreview"));
+  $("#foodPhoto").addEventListener("change", (event) => handleFoodImageFiles(event.target, "food"));
+  $("#labelPhoto").addEventListener("change", (event) => handleFoodImageFiles(event.target, "label"));
   $("#takeFoodPhotoButton").addEventListener("click", () => $("#foodCameraInput").click());
   $("#takeLabelPhotoButton").addEventListener("click", () => $("#labelCameraInput").click());
-  $("#foodCameraInput").addEventListener("change", (event) => previewFile(event.target, "#foodPreview"));
-  $("#labelCameraInput").addEventListener("change", (event) => previewFile(event.target, "#labelPreview"));
+  $("#foodCameraInput").addEventListener("change", (event) => handleFoodImageFiles(event.target, "food"));
+  $("#labelCameraInput").addEventListener("change", (event) => handleFoodImageFiles(event.target, "label"));
   $("#frontPhoto").addEventListener("change", (event) => previewFile(event.target, "#frontPreview"));
   $("#sidePhoto").addEventListener("change", (event) => previewFile(event.target, "#sidePreview"));
   $("#backPhoto").addEventListener("change", (event) => previewFile(event.target, "#backPreview"));
 
-  $("#estimateFoodButton").addEventListener("click", () => {
-    estimateFood();
-    flashButton("#estimateFoodButton", t("estimated"));
-  });
+  $("#estimateFoodButton").addEventListener("click", estimateFood);
 
   $("#saveFavoriteButton").addEventListener("click", saveFavorite);
   $("#addFoodToTodayButton").addEventListener("click", addPendingFoodToToday);
@@ -1299,6 +1545,25 @@ function bindEvents() {
     if (!item) return;
     useFavorite(Number(item.dataset.favorite));
   });
+
+  $("#foodHistoryList").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-delete-food-log]");
+    if (!button) return;
+    state.foodLogs = state.foodLogs.filter((item) => item.id !== button.dataset.deleteFoodLog);
+    recalculateFoodTotals();
+    saveState();
+    renderStats();
+    renderFoodHistory();
+  });
+
+  $("#historyDateInput").addEventListener("change", renderFoodHistory);
+  $("#showAllHistoryButton").addEventListener("click", () => {
+    $("#historyDateInput").value = "";
+    renderFoodHistory();
+  });
+
+  $("#foodPreviewGrid").addEventListener("click", removeFoodImage);
+  $("#labelPreviewGrid").addEventListener("click", removeFoodImage);
 
   $("#analyzeBodyButton").addEventListener("click", () => {
     renderBodyAnalysis();
