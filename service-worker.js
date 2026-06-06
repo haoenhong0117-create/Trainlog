@@ -1,11 +1,15 @@
-const CACHE_NAME = "trainlog-v10";
+const CACHE_NAME = "trainlog-v11-runtime";
+const RUNTIME_PATCH = "./trainlog-v11-runtime.js?v=11";
 const ASSETS = [
   "./",
   "./index.html",
   "./使用说明.html",
   "./styles.css?v=10",
+  "./styles.css?v=11",
   "./app.js?v=10",
-  "./service-worker.js?v=10",
+  "./app.js?v=11",
+  RUNTIME_PATCH,
+  "./service-worker.js?v=11",
   "./manifest.webmanifest",
   "./icon.svg",
   "./.nojekyll",
@@ -30,6 +34,25 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (new URL(event.request.url).pathname.endsWith("/app.js")) {
+    event.respondWith(
+      Promise.all([fetch(event.request), fetch(RUNTIME_PATCH)])
+        .then(async ([appResponse, patchResponse]) => {
+          if (!appResponse.ok || !patchResponse.ok) throw new Error("Runtime patch unavailable");
+          const headers = new Headers(appResponse.headers);
+          headers.set("Content-Type", "text/javascript; charset=utf-8");
+          const response = new Response(`${await appResponse.text()}\n${await patchResponse.text()}`, {
+            status: appResponse.status,
+            statusText: appResponse.statusText,
+            headers
+          });
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
