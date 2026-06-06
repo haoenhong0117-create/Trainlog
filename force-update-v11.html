@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0d0c" />
+    <title>TrainLog v11 升级</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: #0b0d0c;
+        color: #f2f5f1;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { width: min(100%, 440px); }
+      h1 { margin: 0 0 12px; font-size: 2rem; }
+      p { color: #aeb7b0; line-height: 1.6; }
+      #status { min-height: 52px; color: #76e5ac; }
+      button {
+        width: 100%;
+        min-height: 52px;
+        border: 0;
+        border-radius: 6px;
+        background: #00d783;
+        color: #07130d;
+        font: inherit;
+        font-weight: 800;
+      }
+      button:disabled { opacity: .55; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>TrainLog v11</h1>
+      <p>正在清除旧版 v10 缓存并安装 v11。你的饮食、训练与个人数据不会被删除。</p>
+      <p id="status">准备升级...</p>
+      <button id="upgradeButton" type="button">强制升级到 v11</button>
+    </main>
+    <script>
+      const status = document.querySelector("#status");
+      const button = document.querySelector("#upgradeButton");
+      const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      async function upgrade() {
+        button.disabled = true;
+        try {
+          status.textContent = "正在移除 v10 Service Worker...";
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+
+          status.textContent = "正在清除 TrainLog 旧缓存...";
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.filter((name) => name.startsWith("trainlog-")).map((name) => caches.delete(name))
+          );
+
+          status.textContent = "正在安装 TrainLog v11...";
+          const registration = await navigator.serviceWorker.register(
+            `./service-worker.js?v=11-force-${Date.now()}`,
+            { scope: "./", updateViaCache: "none" }
+          );
+          await registration.update();
+          registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+          await navigator.serviceWorker.ready;
+          await pause(1800);
+
+          status.textContent = "v11 已安装，正在打开 TrainLog...";
+          location.replace(`./?v=11-force-${Date.now()}`);
+        } catch (error) {
+          status.textContent = `升级失败：${error.message || "请检查网络后重试"}`;
+          button.disabled = false;
+        }
+      }
+
+      button.addEventListener("click", upgrade);
+      upgrade();
+    </script>
+  </body>
+</html>
