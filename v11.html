@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101111" />
+    <title>TrainLog v11</title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #101111; color: #f2f5f1; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    </style>
+  </head>
+  <body>
+    <p>正在启动 TrainLog v11...</p>
+    <script>
+      (async () => {
+        try {
+          const response = await fetch(`./index.html?v11-source=${Date.now()}`, { cache: "no-store" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          let html = await response.text();
+          html = html
+            .replace(/<title>[\s\S]*?<\/title>/i, "<title>TrainLog v11</title>")
+            .replace(/>v10<\/button>/g, ">v11</button>")
+            .replace(/<script src="app\.js\?v=10" defer><\/script>/, '<script src="app.js?v=10&no-runtime=1"><\/script><script src="trainlog-v11-runtime.js?v=11"><\/script>');
+          document.open();
+          document.write(html);
+          document.close();
+        } catch (error) {
+          document.body.innerHTML = `<main><h1>TrainLog v11</h1><p>启动失败：${error.message}</p><button onclick="location.reload()">重试</button></main>`;
+        }
+      })();
+    </script>
+  </body>
+</html>
