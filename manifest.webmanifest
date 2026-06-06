@@ -2,7 +2,7 @@
   "name": "TrainLog",
   "short_name": "TrainLog",
   "description": "AI fitness, nutrition, posture, and physique coaching app.",
-  "start_url": "./index.html?v=10",
+  "start_url": "./v11.html?v=11",
   "display": "standalone",
   "background_color": "#101111",
   "theme_color": "#101111",
