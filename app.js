@@ -1,5 +1,5 @@
 const STORAGE_KEY = "trainlog-v2";
-const APP_VERSION = "10";
+const APP_VERSION = "11";
 
 const translations = {
   zh: {
