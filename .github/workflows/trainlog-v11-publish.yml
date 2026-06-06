@@ -1,6 +1,7 @@
 name: Publish TrainLog v11
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - ".github/workflows/trainlog-v11-publish.yml"
